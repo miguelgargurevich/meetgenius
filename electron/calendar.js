@@ -97,6 +97,46 @@ ${REQUEST_ACCESS}
 `;
 }
 
+// Script de ACTUALIZACIÓN de un evento existente por su identificador.
+function buildUpdateScript({ eventId, title, startISO, endISO, notes, url }) {
+  return `
+ObjC.import('EventKit');
+ObjC.import('Foundation');
+function run() {
+${REQUEST_ACCESS}
+  var ev = store.eventWithIdentifier(${JSON.stringify(eventId)});
+  if (!ev || !ObjC.unwrap(ev.eventIdentifier)) return JSON.stringify({ error: 'not-found' });
+  var fmt = $.NSISO8601DateFormatter.alloc.init;
+  ev.title = ${JSON.stringify(title || "Reunión")};
+  ev.startDate = fmt.dateFromString(${JSON.stringify(startISO)});
+  ev.endDate = fmt.dateFromString(${JSON.stringify(endISO)});
+  ev.notes = ${JSON.stringify(notes || "")};
+  var url = ${JSON.stringify(url || "")};
+  if (url) { try { ev.URL = $.NSURL.URLWithString(url); } catch (e) {} }
+  var err = $();
+  var ok = store.saveEventSpanError(ev, 0, err);
+  if (!ok) return JSON.stringify({ error: 'save-failed' });
+  return JSON.stringify({ id: ObjC.unwrap(ev.eventIdentifier) });
+}
+`;
+}
+
+// Script de ELIMINACIÓN de un evento por su identificador.
+function buildDeleteScript(eventId) {
+  return `
+ObjC.import('EventKit');
+ObjC.import('Foundation');
+function run() {
+${REQUEST_ACCESS}
+  var ev = store.eventWithIdentifier(${JSON.stringify(eventId)});
+  if (!ev || !ObjC.unwrap(ev.eventIdentifier)) return JSON.stringify({ ok: true }); // ya no existe
+  var err = $();
+  var ok = store.removeEventSpanError(ev, 0, err);
+  return JSON.stringify({ ok: ok ? true : false });
+}
+`;
+}
+
 function runJXA(script) {
   return new Promise((resolve) => {
     if (process.platform !== "darwin") return resolve({ error: "unsupported" });
@@ -166,4 +206,22 @@ async function createCalendarEvent(payload) {
   return runJXA(buildCreateScript(payload));
 }
 
-module.exports = { getTodayEvents, getEventsInRange, createCalendarEvent };
+/** Actualiza un evento existente. Devuelve { id } o { error }. */
+async function updateCalendarEvent(payload) {
+  if (process.platform !== "darwin") return { error: "unsupported" };
+  return runJXA(buildUpdateScript(payload));
+}
+
+/** Elimina un evento por su identificador. Devuelve { ok } o { error }. */
+async function deleteCalendarEvent(eventId) {
+  if (process.platform !== "darwin") return { error: "unsupported" };
+  return runJXA(buildDeleteScript(eventId));
+}
+
+module.exports = {
+  getTodayEvents,
+  getEventsInRange,
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+};

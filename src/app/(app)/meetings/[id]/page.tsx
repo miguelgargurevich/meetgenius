@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   Sparkles,
   Loader2,
+  Pencil,
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ import { Skeleton as SkeletonBox } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StatusBadge } from "@/components/status-badge";
 import { RecorderPanel } from "@/components/meetings/recorder-panel";
+import { CreateMeetingDialog } from "@/components/meetings/create-meeting-dialog";
 import {
   SummaryView,
   TasksView,
@@ -46,6 +48,7 @@ function MeetingDetailInner() {
   const params = useSearchParams();
   const { data: m, isLoading } = useMeeting(id);
   const [reanalyzing, setReanalyzing] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
 
   const reanalyze = async () => {
     setReanalyzing(true);
@@ -81,6 +84,9 @@ function MeetingDetailInner() {
         description={m.description ?? undefined}
         action={
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil className="size-4" /> Editar
+            </Button>
             {m.status === "COMPLETED" && (
               <>
                 <a href={`/api/meetings/${id}/report?format=pdf`}>
@@ -208,6 +214,21 @@ function MeetingDetailInner() {
           </Tabs>
         )}
       </div>
+
+      <CreateMeetingDialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        meeting={{
+          id: m.id,
+          title: m.title,
+          description: m.description,
+          scheduledAt: m.scheduledAt,
+          scheduledMinutes: m.scheduledMinutes,
+          meetingUrl: m.meetingUrl,
+          externalEventId: m.externalEventId,
+          participants: m.participants,
+        }}
+      />
     </div>
   );
 }

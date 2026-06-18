@@ -130,7 +130,7 @@ MeetGenius lee tu **calendario de macOS** vía **EventKit** — esto cubre de un
 - **Vista de Calendario** (sección *Calendario*): mes y semana que unen en una sola vista tus **reuniones de la app** + los **eventos sincronizados de macOS** (colores distintos). Click en un día → crear; click en evento de la app → abrir; click en evento de calendario con videollamada → grabar.
 - **Agenda de hoy** en el dashboard: tus reuniones del día, con detección del enlace de videollamada (Meet/Teams/Zoom/Webex) y botón **Grabar** por evento.
 - **Sincronización**: automática (cada 5 min) + botón **Sincronizar** manual. Lee el rango visible (mes/semana), no solo hoy.
-- **Bidireccional (one-way)**: al crear una reunión con fecha, el checkbox *"Añadir a mi calendario de macOS"* crea también el evento nativo (vía EventKit). Las ediciones/eliminaciones posteriores no se propagan.
+- **Sincronización bidireccional completa**: al crear/editar una reunión con fecha, el checkbox *"Sincronizar con mi calendario de macOS"* crea o **actualiza** el evento nativo (vía EventKit). Al **eliminar** la reunión en la app, también se borra el evento. Editar una reunión se hace con el botón **Editar** en su detalle.
 - Al **autodetectar** una llamada, MeetGenius cruza con el evento en curso para usar su **título e invitados reales** (en vez de un nombre genérico).
 - **Permiso macOS**: *Calendarios* (Ajustes del Sistema → Privacidad y seguridad → Calendarios → MeetGenius). Sin él, la vista muestra solo las reuniones de la app y avisa.
 

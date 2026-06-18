@@ -12,6 +12,17 @@ export const createMeetingSchema = z.object({
 });
 export type CreateMeetingInput = z.infer<typeof createMeetingSchema>;
 
+export const updateMeetingSchema = z.object({
+  title: z.string().min(2).optional(),
+  description: z.string().optional().nullable(),
+  scheduledAt: z.string().min(1).optional().nullable(),
+  durationMinutes: z.coerce.number().int().positive().max(1440).optional().nullable(),
+  meetingUrl: z.string().url().optional().nullable().or(z.literal("")),
+  externalEventId: z.string().optional().nullable(),
+  participants: z.array(z.string()).optional(),
+});
+export type UpdateMeetingInput = z.infer<typeof updateMeetingSchema>;
+
 export const updateTaskSchema = z.object({
   status: z.enum(["TODO", "IN_PROGRESS", "DONE", "BLOCKED"]).optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH", "CRITICAL"]).optional(),

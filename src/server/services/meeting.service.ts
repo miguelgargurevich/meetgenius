@@ -6,7 +6,7 @@ import { getCurrentOrg } from "@/server/context";
 import { meetingRepository } from "@/server/repositories/meeting.repository";
 import { audit } from "./audit.service";
 import { runAnalysisPipeline } from "./analysis.service";
-import type { CreateMeetingInput } from "@/server/validators";
+import type { CreateMeetingInput, UpdateMeetingInput } from "@/server/validators";
 
 const log = logger.child("meetings");
 
@@ -55,6 +55,22 @@ export const meetingService = {
       owner: { connect: { id: org.userId } },
     });
     await audit({ ...org, action: "create", entity: "Meeting", entityId: meeting.id });
+    return meeting;
+  },
+
+  async update(id: string, input: UpdateMeetingInput) {
+    const org = await getCurrentOrg();
+    const data: Record<string, unknown> = {};
+    if (input.title !== undefined) data.title = input.title;
+    if (input.description !== undefined) data.description = input.description;
+    if (input.scheduledAt !== undefined)
+      data.scheduledAt = input.scheduledAt ? new Date(input.scheduledAt) : null;
+    if (input.durationMinutes !== undefined) data.scheduledMinutes = input.durationMinutes;
+    if (input.meetingUrl !== undefined) data.meetingUrl = input.meetingUrl || null;
+    if (input.externalEventId !== undefined) data.externalEventId = input.externalEventId || null;
+    if (input.participants !== undefined) data.participants = input.participants;
+    const meeting = await meetingRepository.update(id, data);
+    await audit({ ...org, action: "update", entity: "Meeting", entityId: id });
     return meeting;
   },
 

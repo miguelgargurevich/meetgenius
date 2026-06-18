@@ -3,12 +3,13 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { format } from "date-fns";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Label } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/misc";
-import { useCreateMeeting } from "@/hooks/use-meetings";
+import { useCreateMeeting, useUpdateMeeting } from "@/hooks/use-meetings";
 import { desktop, isDesktopApp } from "@/lib/desktop";
 
 interface FormValues {
@@ -20,32 +21,66 @@ interface FormValues {
   participantsRaw?: string;
 }
 
+/** Forma mínima de una reunión para editar. */
+export interface EditableMeeting {
+  id: string;
+  title: string;
+  description?: string | null;
+  scheduledAt?: string | null;
+  scheduledMinutes?: number | null;
+  meetingUrl?: string | null;
+  externalEventId?: string | null;
+  participants?: string[];
+}
+
+function toLocalInput(iso: string) {
+  return format(new Date(iso), "yyyy-MM-dd'T'HH:mm");
+}
+
 export function CreateMeetingDialog({
   open,
   onClose,
   startRecording,
   defaultDate,
+  meeting,
 }: {
   open: boolean;
   onClose: () => void;
   startRecording?: boolean;
-  /** Prefilla la fecha/hora (formato datetime-local: YYYY-MM-DDTHH:mm). */
+  /** Prefilla la fecha/hora (formato datetime-local). */
   defaultDate?: string;
+  /** Si se pasa, el diálogo opera en modo EDICIÓN. */
+  meeting?: EditableMeeting;
 }) {
   const router = useRouter();
   const create = useCreateMeeting();
+  const update = useUpdateMeeting();
+  const isEdit = Boolean(meeting);
   const desktopApp = isDesktopApp();
   const [addToCalendar, setAddToCalendar] = React.useState(true);
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<FormValues>({ defaultValues: { durationMinutes: 30 } });
+  const { register, handleSubmit, reset } = useForm<FormValues>({
+    defaultValues: { durationMinutes: 30 },
+  });
 
   React.useEffect(() => {
-    if (open) reset({ durationMinutes: 30, scheduledAt: defaultDate });
-  }, [open, defaultDate, reset]);
+    if (!open) return;
+    if (meeting) {
+      reset({
+        title: meeting.title,
+        description: meeting.description ?? "",
+        scheduledAt: meeting.scheduledAt ? toLocalInput(meeting.scheduledAt) : "",
+        durationMinutes: meeting.scheduledMinutes ?? 30,
+        meetingUrl: meeting.meetingUrl ?? "",
+        participantsRaw: (meeting.participants ?? []).join(", "),
+      });
+      setAddToCalendar(Boolean(meeting.externalEventId) || true);
+    } else {
+      reset({ durationMinutes: 30, scheduledAt: defaultDate });
+      setAddToCalendar(true);
+    }
+  }, [open, meeting, defaultDate, reset]);
+
+  const pending = create.isPending || update.isPending;
 
   const onSubmit = handleSubmit(async (values) => {
     if (!values.title || values.title.trim().length < 2) {
@@ -59,25 +94,55 @@ export function CreateMeetingDialog({
     const durationMinutes = Number(values.durationMinutes) || 30;
 
     try {
-      // Sync bidireccional: crear el evento en el calendario de macOS primero
-      // para obtener su id y deduplicarlo en la vista de calendario.
-      let externalEventId: string | undefined;
-      if (desktopApp && addToCalendar && values.scheduledAt) {
-        const start = new Date(values.scheduledAt);
-        const end = new Date(start.getTime() + durationMinutes * 60_000);
-        const res = await desktop()?.createCalendarEvent?.({
-          title: values.title,
-          startISO: start.toISOString(),
-          endISO: end.toISOString(),
-          notes: values.description,
-          url: values.meetingUrl,
-        });
-        if (res?.id) externalEventId = res.id;
-        else if (res?.error && res.error !== "unsupported")
-          toast.warning("No se pudo añadir al calendario de macOS (revisa el permiso de Calendarios).");
+      // ── Gestión del evento en el calendario de macOS ──
+      let externalEventId: string | undefined = meeting?.externalEventId ?? undefined;
+      if (desktopApp) {
+        const start = values.scheduledAt ? new Date(values.scheduledAt) : null;
+        const end = start ? new Date(start.getTime() + durationMinutes * 60_000) : null;
+
+        if (addToCalendar && start && end) {
+          const payload = {
+            title: values.title,
+            startISO: start.toISOString(),
+            endISO: end.toISOString(),
+            notes: values.description,
+            url: values.meetingUrl,
+          };
+          const res = externalEventId
+            ? await desktop()?.updateCalendarEvent?.({ ...payload, eventId: externalEventId })
+            : await desktop()?.createCalendarEvent?.(payload);
+          if (res?.id) externalEventId = res.id;
+          else if (res?.error === "not-found") {
+            // El evento fue borrado en macOS: lo recreamos.
+            const created = await desktop()?.createCalendarEvent?.(payload);
+            if (created?.id) externalEventId = created.id;
+          } else if (res?.error && res.error !== "unsupported") {
+            toast.warning("No se pudo sincronizar con el calendario de macOS (revisa el permiso).");
+          }
+        } else if (!addToCalendar && externalEventId) {
+          // Se desmarcó: eliminamos el evento sincronizado.
+          await desktop()?.deleteCalendarEvent?.(externalEventId).catch(() => {});
+          externalEventId = undefined;
+        }
       }
 
-      const meeting = await create.mutateAsync({
+      if (isEdit && meeting) {
+        await update.mutateAsync({
+          id: meeting.id,
+          title: values.title,
+          description: values.description ?? "",
+          scheduledAt: values.scheduledAt || null,
+          durationMinutes,
+          meetingUrl: values.meetingUrl || "",
+          externalEventId: externalEventId ?? null,
+          participants,
+        });
+        toast.success("Reunión actualizada");
+        onClose();
+        return;
+      }
+
+      const created = await create.mutateAsync({
         title: values.title,
         description: values.description,
         scheduledAt: values.scheduledAt || null,
@@ -89,19 +154,27 @@ export function CreateMeetingDialog({
       toast.success("Reunión creada");
       reset();
       onClose();
-      router.push(`/meetings/${meeting.id}${startRecording ? "?record=1" : ""}`);
+      router.push(`/meetings/${created.id}${startRecording ? "?record=1" : ""}`);
     } catch (e) {
       toast.error((e as Error).message);
     }
   });
 
   return (
-    <Dialog open={open} onClose={onClose} title="Nueva reunión" description="Programa o graba una reunión y analízala con IA.">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={isEdit ? "Editar reunión" : "Nueva reunión"}
+      description={
+        isEdit
+          ? "Cambia los datos; se sincronizan con tu calendario de macOS."
+          : "Programa o graba una reunión y analízala con IA."
+      }
+    >
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="title">Título</Label>
           <Input id="title" placeholder="Sync semanal de producto" {...register("title")} />
-          {errors.title && <p className="text-xs text-[var(--danger)]">{errors.title.message}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -138,7 +211,7 @@ export function CreateMeetingDialog({
               onChange={(e) => setAddToCalendar(e.target.checked)}
               className="size-4 accent-[var(--primary)]"
             />
-            Añadir también a mi calendario de macOS
+            Sincronizar con mi calendario de macOS
           </label>
         )}
 
@@ -146,9 +219,9 @@ export function CreateMeetingDialog({
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={create.isPending}>
-            {create.isPending && <Spinner />}
-            {startRecording ? "Crear y grabar" : "Crear reunión"}
+          <Button type="submit" disabled={pending}>
+            {pending && <Spinner />}
+            {isEdit ? "Guardar cambios" : startRecording ? "Crear y grabar" : "Crear reunión"}
           </Button>
         </div>
       </form>

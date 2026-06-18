@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld("meetgenius", {
   getTodayAgenda: () => ipcRenderer.invoke("calendar-today"),
   getCalendarRange: (start, end) => ipcRenderer.invoke("calendar-range", { start, end }),
   createCalendarEvent: (payload) => ipcRenderer.invoke("calendar-create-event", payload),
+  updateCalendarEvent: (payload) => ipcRenderer.invoke("calendar-update-event", payload),
+  deleteCalendarEvent: (eventId) => ipcRenderer.invoke("calendar-delete-event", eventId),
 
   // Recordatorios de reuniones.
   setReminders: (cfg) => ipcRenderer.send("reminders-config", cfg),

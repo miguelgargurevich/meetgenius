@@ -4,7 +4,13 @@
 const { app, BrowserWindow, shell, session, desktopCapturer, systemPreferences, ipcMain } = require("electron");
 const path = require("path");
 const { startMeetingDetector, runDetection } = require("./meeting-detector");
-const { getTodayEvents, getEventsInRange, createCalendarEvent } = require("./calendar");
+const {
+  getTodayEvents,
+  getEventsInRange,
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+} = require("./calendar");
 const { startReminders, setReminderConfig } = require("./reminders");
 
 // Estado del permiso de grabación de pantalla (requisito del loopback en macOS).
@@ -22,8 +28,10 @@ ipcMain.handle("calendar-today", () => getTodayEvents());
 // Eventos en un rango de fechas (vista de calendario mensual/semanal).
 ipcMain.handle("calendar-range", (_e, range) => getEventsInRange(range.start, range.end));
 
-// Crear un evento en el calendario de macOS (sync bidireccional one-way).
+// Crear/actualizar/eliminar eventos en el calendario de macOS (sync bidireccional).
 ipcMain.handle("calendar-create-event", (_e, payload) => createCalendarEvent(payload));
+ipcMain.handle("calendar-update-event", (_e, payload) => updateCalendarEvent(payload));
+ipcMain.handle("calendar-delete-event", (_e, eventId) => deleteCalendarEvent(eventId));
 
 // Configuración de recordatorios (on/off + minutos de antelación).
 ipcMain.on("reminders-config", (_e, cfg) => setReminderConfig(cfg || {}));

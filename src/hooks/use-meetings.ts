@@ -2,8 +2,9 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import type { CreateMeetingInput } from "@/server/validators";
+import type { CreateMeetingInput, UpdateMeetingInput } from "@/server/validators";
 import type { DashboardData } from "@/server/services/dashboard.service";
+import { desktop, isDesktopApp } from "@/lib/desktop";
 
 export interface MeetingListItem {
   id: string;
@@ -53,10 +54,31 @@ export function useCreateMeeting() {
   });
 }
 
+export function useUpdateMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...input }: UpdateMeetingInput & { id: string }) =>
+      api.patch<{ id: string }>(`/api/meetings/${id}`, input),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["meetings"] });
+      qc.invalidateQueries({ queryKey: ["meeting", vars.id] });
+    },
+  });
+}
+
+/**
+ * Borra una reunión y, si es de escritorio y tenía evento sincronizado,
+ * también lo elimina del calendario de macOS (sync bidireccional).
+ */
 export function useDeleteMeeting() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.del(`/api/meetings/${id}`),
+    mutationFn: async ({ id, externalEventId }: { id: string; externalEventId?: string | null }) => {
+      if (isDesktopApp() && externalEventId) {
+        await desktop()?.deleteCalendarEvent?.(externalEventId).catch(() => {});
+      }
+      return api.del(`/api/meetings/${id}`);
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meetings"] }),
   });
 }

@@ -58,10 +58,13 @@ export function MeetingCard({ meeting }: { meeting: MeetingListItem }) {
         onClick={(e) => {
           e.preventDefault();
           if (confirm(`¿Eliminar "${meeting.title}"? Esta acción no se puede deshacer.`)) {
-            del.mutate(meeting.id, {
-              onSuccess: () => toast.success("Reunión eliminada"),
-              onError: (err) => toast.error((err as Error).message),
-            });
+            del.mutate(
+              { id: meeting.id, externalEventId: meeting.externalEventId },
+              {
+                onSuccess: () => toast.success("Reunión eliminada"),
+                onError: (err) => toast.error((err as Error).message),
+              },
+            );
           }
         }}
       >
