@@ -3,7 +3,11 @@ import { z } from "zod";
 export const createMeetingSchema = z.object({
   title: z.string().min(2, "El título es obligatorio"),
   description: z.string().optional(),
-  scheduledAt: z.string().datetime().optional().nullable(),
+  // Acepta formato `datetime-local` (sin segundos ni zona) o ISO.
+  scheduledAt: z.string().min(1).optional().nullable(),
+  durationMinutes: z.coerce.number().int().positive().max(1440).optional(),
+  meetingUrl: z.string().url().optional().or(z.literal("")),
+  externalEventId: z.string().optional().nullable(),
   participants: z.array(z.string()).default([]),
 });
 export type CreateMeetingInput = z.infer<typeof createMeetingSchema>;

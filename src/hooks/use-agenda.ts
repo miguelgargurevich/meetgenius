@@ -16,6 +16,18 @@ export function useTodayAgenda() {
   });
 }
 
+/** Eventos del calendario de macOS en un rango (vista de calendario). */
+export function useCalendarRange(startISO: string, endISO: string) {
+  return useQuery({
+    queryKey: ["calendar-range", startISO, endISO],
+    enabled: isDesktopApp(),
+    queryFn: async () => {
+      const res = await desktop()?.getCalendarRange?.(startISO, endISO);
+      return res ?? { events: [] as CalendarEvent[] };
+    },
+  });
+}
+
 /** Evento que está ocurriendo ahora (o el próximo en arrancar). */
 export function findCurrentEvent(events: CalendarEvent[], at = Date.now()): CalendarEvent | null {
   const ongoing = events.find(

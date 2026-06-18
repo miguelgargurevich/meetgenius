@@ -1,4 +1,4 @@
-// Lectura del calendario de macOS vía EventKit (script JXA).
+// Lectura y escritura del calendario de macOS vía EventKit (script JXA).
 //
 // Usa EventKit directamente (rápido e indexado), NO automatización de
 // Calendario.app (lento). Lee TODAS las cuentas agregadas en macOS:
@@ -9,15 +9,9 @@
 
 const { spawn } = require("node:child_process");
 
-// Script JXA: pide acceso a EventKit y devuelve los eventos de hoy en JSON.
-const JXA = `
-ObjC.import('EventKit');
-ObjC.import('Foundation');
-
-function run() {
+// Bloque común: solicita acceso completo a EventKit y espera el callback.
+const REQUEST_ACCESS = `
   var store = $.EKEventStore.alloc.init;
-
-  // Solicitud de acceso (compat. macOS 14+ y anteriores) — esperamos el callback.
   var done = false, granted = false;
   var handler = $(function(g, err) { granted = g; done = true; });
   if (typeof store.requestFullAccessToEventsCompletion === 'function') {
@@ -28,29 +22,28 @@ function run() {
   var deadline = $.NSDate.dateWithTimeIntervalSinceNow(10);
   while (!done && $.NSDate.date.compare(deadline) < 0) {
     $.NSRunLoop.currentRunLoop.runModeBeforeDate(
-      $.NSDefaultRunLoopMode,
-      $.NSDate.dateWithTimeIntervalSinceNow(0.05)
+      $.NSDefaultRunLoopMode, $.NSDate.dateWithTimeIntervalSinceNow(0.05)
     );
   }
   if (!granted) return JSON.stringify({ error: 'no-access' });
+`;
 
-  var cal = $.NSCalendar.currentCalendar;
-  var now = $.NSDate.date;
-  var startOfDay = cal.startOfDayForDate(now);
-  var comps = $.NSDateComponents.alloc.init;
-  comps.day = 1;
-  var endOfDay = cal.dateByAddingComponentsToDateOptions(comps, startOfDay, 0);
-
-  var pred = store.predicateForEventsWithStartDateEndDateCalendars(startOfDay, endOfDay, $());
-  var events = store.eventsMatchingPredicate(pred);
-
+// Script de LECTURA: eventos en [startISO, endISO).
+function buildReadScript(startISO, endISO) {
+  return `
+ObjC.import('EventKit');
+ObjC.import('Foundation');
+function run() {
+${REQUEST_ACCESS}
   var fmt = $.NSISO8601DateFormatter.alloc.init;
+  var start = fmt.dateFromString(${JSON.stringify(startISO)});
+  var end = fmt.dateFromString(${JSON.stringify(endISO)});
+  var pred = store.predicateForEventsWithStartDateEndDateCalendars(start, end, $());
+  var events = store.eventsMatchingPredicate(pred);
   var out = [];
   var n = events.count;
   for (var i = 0; i < n; i++) {
     var ev = events.objectAtIndex(i);
-    if (ev.allDay) continue;
-
     var attendees = [];
     try {
       var att = ev.attendees;
@@ -61,12 +54,12 @@ function run() {
         }
       }
     } catch (e) {}
-
     out.push({
       id: ObjC.unwrap(ev.eventIdentifier) || String(i),
       title: ev.title ? ObjC.unwrap(ev.title) : '(sin título)',
       start: ObjC.unwrap(fmt.stringFromDate(ev.startDate)),
       end: ObjC.unwrap(fmt.stringFromDate(ev.endDate)),
+      allDay: ev.allDay ? true : false,
       location: ev.location ? ObjC.unwrap(ev.location) : '',
       url: ev.URL ? ObjC.unwrap(ev.URL.absoluteString) : '',
       notes: ev.notes ? ObjC.unwrap(ev.notes) : '',
@@ -77,6 +70,53 @@ function run() {
   return JSON.stringify({ events: out });
 }
 `;
+}
+
+// Script de ESCRITURA: crea un evento en el calendario por defecto.
+function buildCreateScript({ title, startISO, endISO, notes, url }) {
+  return `
+ObjC.import('EventKit');
+ObjC.import('Foundation');
+function run() {
+${REQUEST_ACCESS}
+  var fmt = $.NSISO8601DateFormatter.alloc.init;
+  var ev = $.EKEvent.eventWithEventStore(store);
+  ev.title = ${JSON.stringify(title || "Reunión")};
+  ev.startDate = fmt.dateFromString(${JSON.stringify(startISO)});
+  ev.endDate = fmt.dateFromString(${JSON.stringify(endISO)});
+  var notes = ${JSON.stringify(notes || "")};
+  if (notes) ev.notes = notes;
+  var url = ${JSON.stringify(url || "")};
+  if (url) { try { ev.URL = $.NSURL.URLWithString(url); } catch (e) {} }
+  ev.calendar = store.defaultCalendarForNewEvents;
+  var err = $();
+  var ok = store.saveEventSpanError(ev, 0 /* EKSpanThisEvent */, err);
+  if (!ok) return JSON.stringify({ error: 'save-failed' });
+  return JSON.stringify({ id: ObjC.unwrap(ev.eventIdentifier) });
+}
+`;
+}
+
+function runJXA(script) {
+  return new Promise((resolve) => {
+    if (process.platform !== "darwin") return resolve({ error: "unsupported" });
+    const child = spawn("osascript", ["-l", "JavaScript"]);
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (d) => (stdout += d));
+    child.stderr.on("data", (d) => (stderr += d));
+    child.on("error", () => resolve({ error: "spawn" }));
+    child.on("close", () => {
+      try {
+        resolve(JSON.parse(stdout.trim() || "{}"));
+      } catch {
+        resolve({ error: stderr ? "script" : "parse" });
+      }
+    });
+    child.stdin.write(script + "\n");
+    child.stdin.end();
+  });
+}
 
 // Extrae un enlace de videollamada de los campos de texto del evento.
 const JOIN_RE = /(https?:\/\/[^\s"'<>]*(?:teams\.microsoft\.com|teams\.live\.com|meet\.google\.com|zoom\.us|webex\.com)[^\s"'<>]*)/i;
@@ -98,34 +138,32 @@ function platformOf(joinUrl) {
   return null;
 }
 
-/** Devuelve los eventos de hoy con metadatos de videollamada. */
-function getTodayEvents() {
-  return new Promise((resolve) => {
-    if (process.platform !== "darwin") return resolve({ events: [] });
-
-    const child = spawn("osascript", ["-l", "JavaScript"]);
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (d) => (stdout += d));
-    child.stderr.on("data", (d) => (stderr += d));
-    child.on("error", () => resolve({ events: [], error: "spawn" }));
-    child.on("close", () => {
-      try {
-        const parsed = JSON.parse(stdout.trim() || "{}");
-        if (parsed.error) return resolve({ events: [], error: parsed.error });
-        const events = (parsed.events || []).map((ev) => {
-          const joinUrl = extractJoinUrl(ev);
-          return { ...ev, joinUrl, platform: platformOf(joinUrl) };
-        });
-        resolve({ events });
-      } catch {
-        resolve({ events: [], error: stderr ? "script" : "parse" });
-      }
+/** Eventos (con videollamada detectada) en el rango [startISO, endISO). */
+async function getEventsInRange(startISO, endISO) {
+  if (process.platform !== "darwin") return { events: [] };
+  const parsed = await runJXA(buildReadScript(startISO, endISO));
+  if (parsed.error) return { events: [], error: parsed.error };
+  const events = (parsed.events || [])
+    .filter((ev) => !ev.allDay)
+    .map((ev) => {
+      const joinUrl = extractJoinUrl(ev);
+      return { ...ev, joinUrl, platform: platformOf(joinUrl) };
     });
-
-    child.stdin.write(JXA + "\n");
-    child.stdin.end();
-  });
+  return { events };
 }
 
-module.exports = { getTodayEvents };
+/** Eventos de hoy (wrapper de getEventsInRange para la agenda). */
+function getTodayEvents() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return getEventsInRange(start.toISOString(), end.toISOString());
+}
+
+/** Crea un evento en el calendario por defecto. Devuelve { id } o { error }. */
+async function createCalendarEvent(payload) {
+  if (process.platform !== "darwin") return { error: "unsupported" };
+  return runJXA(buildCreateScript(payload));
+}
+
+module.exports = { getTodayEvents, getEventsInRange, createCalendarEvent };

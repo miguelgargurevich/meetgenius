@@ -60,9 +60,12 @@ model Meeting {
   // DRAFT | RECORDING | PAUSED | PROCESSING | COMPLETED | FAILED
   status      String  @default("DRAFT")
   scheduledAt DateTime?
+  scheduledMinutes Int? // duración prevista (para pintar el bloque en el calendario)
   startedAt   DateTime?
   endedAt     DateTime?
   durationSec Int       @default(0)
+  meetingUrl  String? // enlace de la videollamada (Meet/Teams/Zoom)
+  externalEventId String? // id del evento en el calendario de macOS (dedup)
   participants Json     @default("[]") // string[] serializado
   sentiment   String? // POSITIVE | NEUTRAL | NEGATIVE
 

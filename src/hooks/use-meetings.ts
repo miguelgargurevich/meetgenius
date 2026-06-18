@@ -13,6 +13,10 @@ export interface MeetingListItem {
   durationSec: number;
   participants: string[];
   sentiment: "POSITIVE" | "NEUTRAL" | "NEGATIVE" | null;
+  scheduledAt: string | null;
+  scheduledMinutes: number | null;
+  meetingUrl: string | null;
+  externalEventId: string | null;
   createdAt: string;
   owner: { name: string } | null;
   _count: { tasks: number; agreements: number; risks: number };
