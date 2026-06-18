@@ -9,7 +9,7 @@
 
 const { spawn } = require("node:child_process");
 
-function runJXA(script, timeoutMs = 15000) {
+function runJXA(script, timeoutMs = 60000) {
   return new Promise((resolve) => {
     if (process.platform !== "darwin") return resolve({ error: "unsupported" });
     const child = spawn("osascript", ["-l", "JavaScript"]);
