@@ -179,17 +179,19 @@ function platformOf(joinUrl) {
 
 const toEpoch = (iso) => Math.floor(new Date(iso).getTime() / 1000);
 
-/** Eventos (con videollamada detectada) en el rango [startISO, endISO). */
+/** Eventos (incluidos all-day) en el rango [startISO, endISO). */
 async function getEventsInRange(startISO, endISO) {
   if (process.platform !== "darwin") return { events: [] };
   const parsed = await runJXA(buildReadScript(toEpoch(startISO), toEpoch(endISO)));
-  if (parsed.error) return { events: [], error: parsed.error };
-  const events = (parsed.events || [])
-    .filter((ev) => !ev.allDay)
-    .map((ev) => {
-      const joinUrl = extractJoinUrl(ev);
-      return { ...ev, joinUrl, platform: platformOf(joinUrl) };
-    });
+  if (parsed.error) {
+    console.log(`[calendar] range ${startISO}..${endISO} → error: ${parsed.error}`);
+    return { events: [], error: parsed.error };
+  }
+  const events = (parsed.events || []).map((ev) => {
+    const joinUrl = extractJoinUrl(ev);
+    return { ...ev, joinUrl, platform: platformOf(joinUrl) };
+  });
+  console.log(`[calendar] range ${startISO}..${endISO} → ${events.length} eventos`);
   return { events };
 }
 

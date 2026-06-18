@@ -1,6 +1,6 @@
 "use client";
 
-import { startOfWeek, addDays, isSameDay, format } from "date-fns";
+import { startOfWeek, addDays, isSameDay, startOfDay, endOfDay, format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { CalendarItem } from "@/hooks/use-calendar";
@@ -26,6 +26,11 @@ export function WeekView({
   const hours = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i);
   const today = new Date();
 
+  const timedItems = items.filter((it) => !it.allDay);
+  const allDayItems = items.filter((it) => it.allDay);
+  const allDayFor = (day: Date) =>
+    allDayItems.filter((it) => it.start <= endOfDay(day) && it.end > startOfDay(day));
+
   const topFor = (d: Date) => ((d.getHours() + d.getMinutes() / 60 - HOUR_START) * ROW);
 
   return (
@@ -46,6 +51,32 @@ export function WeekView({
         ))}
       </div>
 
+      {/* Fila "todo el día" */}
+      <div className="grid grid-cols-[56px_repeat(7,1fr)] border-b border-[var(--border)]">
+        <div className="flex items-center justify-end px-1 py-1 text-[10px] text-[var(--muted-foreground)]">
+          todo el día
+        </div>
+        {days.map((day) => (
+          <div key={day.toISOString()} className="min-h-7 space-y-0.5 border-l border-[var(--border)] p-1">
+            {allDayFor(day).map((it) => (
+              <div
+                key={it.id}
+                onClick={() => onItemClick(it)}
+                className={cn(
+                  "cursor-pointer truncate rounded px-1.5 py-0.5 text-[11px] leading-tight",
+                  it.source === "app"
+                    ? "bg-[color-mix(in_oklab,var(--primary)_22%,transparent)] text-[var(--foreground)]"
+                    : "bg-[color-mix(in_oklab,var(--success)_18%,transparent)] text-[var(--foreground)]",
+                )}
+                title={it.title}
+              >
+                {it.title}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
       {/* Rejilla horaria */}
       <div className="grid max-h-[60vh] grid-cols-[56px_repeat(7,1fr)] overflow-y-auto">
         {/* Columna de horas */}
@@ -61,7 +92,7 @@ export function WeekView({
 
         {/* Columnas de días */}
         {days.map((day) => {
-          const dayItems = items.filter((it) => isSameDay(it.start, day));
+          const dayItems = timedItems.filter((it) => isSameDay(it.start, day));
           return (
             <div key={day.toISOString()} className="relative border-l border-[var(--border)]">
               {hours.map((h) => (

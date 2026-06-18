@@ -93,7 +93,7 @@ export function MonthView({
                       style={{ background: it.platform ? DOT[it.platform] : "var(--muted-foreground)" }}
                     />
                     <span className="truncate">
-                      {format(it.start, "HH:mm")} {it.title}
+                      {it.allDay ? it.title : `${format(it.start, "HH:mm")} ${it.title}`}
                     </span>
                   </div>
                 ))}

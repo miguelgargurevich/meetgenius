@@ -11,6 +11,7 @@ export interface CalendarItem {
   start: Date;
   end: Date;
   source: "app" | "macos";
+  allDay: boolean;
   platform: "meet" | "teams" | "zoom" | "webex" | null;
   joinUrl: string | null;
   /** id de la reunión en la app (si source === "app"). */
@@ -55,6 +56,7 @@ export function useCalendar(rangeStart: Date, rangeEnd: Date) {
         start,
         end: new Date(start.getTime() + minutes * 60_000),
         source: "app",
+        allDay: false,
         platform: platformOfUrl(m.meetingUrl),
         joinUrl: m.meetingUrl,
         meetingId: m.id,
@@ -70,6 +72,7 @@ export function useCalendar(rangeStart: Date, rangeEnd: Date) {
         start: new Date(e.start),
         end: new Date(e.end),
         source: "macos",
+        allDay: e.allDay,
         platform: e.platform,
         joinUrl: e.joinUrl,
         attendees: e.attendees,

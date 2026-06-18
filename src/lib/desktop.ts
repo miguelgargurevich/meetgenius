@@ -12,6 +12,7 @@ export interface CalendarEvent {
   title: string;
   start: string;
   end: string;
+  allDay: boolean;
   location: string;
   url: string;
   notes: string;
