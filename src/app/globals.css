@@ -119,6 +119,14 @@ body {
   background: var(--muted-foreground);
 }
 
+/* Zonas arrastrables de la ventana (Electron, titleBarStyle hiddenInset) */
+.app-drag {
+  -webkit-app-region: drag;
+}
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}
+
 @keyframes pulse-recording {
   0%,
   100% {

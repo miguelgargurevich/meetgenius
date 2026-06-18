@@ -20,9 +20,9 @@ export function Sidebar({
     <motion.aside
       animate={{ width: collapsed ? 68 : 248 }}
       transition={{ duration: 0.2, ease: "easeInOut" }}
-      className="flex h-screen flex-col border-r border-[var(--border)] bg-[var(--sidebar)]"
+      className="flex h-full flex-col border-r border-[var(--border)] bg-[var(--sidebar)]"
     >
-      <div className="flex h-14 items-center gap-2 px-4">
+      <div className="app-drag flex h-14 items-center gap-2 px-4">
         <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--primary)]">
           <Sparkles className="size-4 text-white" />
         </div>

@@ -51,17 +51,17 @@ export function Topbar() {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--background)]/80 px-6 backdrop-blur">
+    <header className="app-drag flex h-14 shrink-0 items-center justify-between border-b border-[var(--border)] bg-[var(--background)]/80 px-6 backdrop-blur">
       <button
         onClick={openPalette}
-        className="flex w-72 items-center gap-2 rounded-md border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
+        className="app-no-drag flex w-72 items-center gap-2 rounded-md border border-[var(--border)] px-3 py-1.5 text-sm text-[var(--muted-foreground)] hover:bg-[var(--accent)]"
       >
         <Search className="size-4" />
         <span className="flex-1 text-left">Buscar…</span>
         <kbd className="rounded border border-[var(--border)] px-1.5 py-0.5 text-[10px]">⌘K</kbd>
       </button>
 
-      <div className="flex items-center gap-3">
+      <div className="app-no-drag flex items-center gap-3">
         {mounted && desktop && (
           <>
             <button

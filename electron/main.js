@@ -37,6 +37,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     titleBarStyle: "hiddenInset", // estética macOS
+    trafficLightPosition: { x: 16, y: 18 }, // semáforos alineados con la cabecera
     backgroundColor: "#09090b",
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
