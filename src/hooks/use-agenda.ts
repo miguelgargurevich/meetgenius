@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { desktop, isDesktopApp, type CalendarEvent } from "@/lib/desktop";
+import { desktop, isDesktopApp, type CalendarEvent, type TodayAgenda } from "@/lib/desktop";
 
 /** Agenda de hoy desde el calendario de macOS (solo en la app de escritorio). */
 export function useTodayAgenda() {
@@ -22,7 +22,16 @@ export function useCalendarRange(startISO: string, endISO: string) {
     queryKey: ["calendar-range", startISO, endISO],
     enabled: isDesktopApp(),
     queryFn: async () => {
-      const res = await desktop()?.getCalendarRange?.(startISO, endISO);
+      const bridge = desktop();
+      const res = (await bridge?.getCalendarRange?.(startISO, endISO)) as
+        | (TodayAgenda & { calendars?: number })
+        | undefined;
+      console.log(
+        "[MeetGenius] calendar-range →",
+        "eventos:", res?.events?.length ?? "sin-respuesta",
+        "| calendarios:", res?.calendars ?? "sin-campo",
+        "| error:", res?.error ?? "ninguno",
+      );
       return res ?? { events: [] as CalendarEvent[] };
     },
   });

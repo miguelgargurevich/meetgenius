@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { startOfYear, endOfYear, subMonths, addMonths } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMeetings } from "./use-meetings";
 import { useCalendarRange } from "./use-agenda";
@@ -39,7 +40,11 @@ function platformOfUrl(url: string | null): CalendarItem["platform"] {
  */
 export function useCalendar(rangeStart: Date, rangeEnd: Date) {
   const meetingsQ = useMeetings();
-  const macosQ = useCalendarRange(rangeStart.toISOString(), rangeEnd.toISOString());
+  // Sincronizamos TODO el año (un poco más por los bordes), sin filtrar por la
+  // semana/mes visible; las vistas recortan client-side lo que muestran.
+  const macStart = subMonths(startOfYear(rangeStart), 1);
+  const macEnd = addMonths(endOfYear(rangeEnd), 1);
+  const macosQ = useCalendarRange(macStart.toISOString(), macEnd.toISOString());
 
   const items = React.useMemo<CalendarItem[]>(() => {
     const meetings = meetingsQ.data ?? [];

@@ -1,140 +1,13 @@
-// Lectura y escritura del calendario de macOS vía EventKit (script JXA).
+// Lectura y escritura del calendario de macOS vía automatización de Calendar.app
+// (JXA Application('Calendar')).
 //
-// Usa EventKit directamente (rápido e indexado), NO automatización de
-// Calendario.app (lento). Lee TODAS las cuentas agregadas en macOS:
-// iCloud, Google y Microsoft 365 / Outlook.
-//
-// Requiere permiso de "Calendarios" (TCC). En producción, el Info.plist debe
-// incluir NSCalendarsUsageDescription / NSCalendarsFullAccessUsageDescription.
+// NOTA: NO usamos EventKit a través de osascript. macOS termina cualquier
+// proceso que llame a EventKit sin `NSCalendarsUsageDescription` en su Info.plist,
+// y el binario /usr/bin/osascript no la tiene → crash. La automatización de
+// Calendar.app usa permiso de "Automatización" (AppleEvents), que sí funciona
+// desde osascript (lanza el diálogo "… quiere controlar Calendario").
 
 const { spawn } = require("node:child_process");
-
-// Bloque común: solicita acceso completo a EventKit y espera el callback.
-const REQUEST_ACCESS = `
-  var store = $.EKEventStore.alloc.init;
-  var done = false, granted = false;
-  var handler = $(function(g, err) { granted = g; done = true; });
-  if (typeof store.requestFullAccessToEventsCompletion === 'function') {
-    store.requestFullAccessToEventsCompletion(handler);
-  } else {
-    store.requestAccessToEntityTypeCompletion(0 /* EKEntityTypeEvent */, handler);
-  }
-  var deadline = $.NSDate.dateWithTimeIntervalSinceNow(10);
-  while (!done && $.NSDate.date.compare(deadline) < 0) {
-    $.NSRunLoop.currentRunLoop.runModeBeforeDate(
-      $.NSDefaultRunLoopMode, $.NSDate.dateWithTimeIntervalSinceNow(0.05)
-    );
-  }
-  if (!granted) return JSON.stringify({ error: 'no-access' });
-`;
-
-// Script de LECTURA: eventos en [start, end). Las fechas se pasan como
-// epoch (segundos) para evitar problemas de parseo ISO en macOS.
-function buildReadScript(startEpoch, endEpoch) {
-  return `
-ObjC.import('EventKit');
-ObjC.import('Foundation');
-function run() {
-${REQUEST_ACCESS}
-  var fmt = $.NSISO8601DateFormatter.alloc.init;
-  var start = $.NSDate.dateWithTimeIntervalSince1970(${startEpoch});
-  var end = $.NSDate.dateWithTimeIntervalSince1970(${endEpoch});
-  var pred = store.predicateForEventsWithStartDateEndDateCalendars(start, end, $());
-  var events = store.eventsMatchingPredicate(pred);
-  var out = [];
-  var n = events.count;
-  for (var i = 0; i < n; i++) {
-    var ev = events.objectAtIndex(i);
-    var attendees = [];
-    try {
-      var att = ev.attendees;
-      if (att) {
-        for (var j = 0; j < att.count; j++) {
-          var nm = att.objectAtIndex(j).name;
-          if (nm && !nm.isEqualToString('')) attendees.push(ObjC.unwrap(nm));
-        }
-      }
-    } catch (e) {}
-    out.push({
-      id: ObjC.unwrap(ev.eventIdentifier) || String(i),
-      title: ev.title ? ObjC.unwrap(ev.title) : '(sin título)',
-      start: ObjC.unwrap(fmt.stringFromDate(ev.startDate)),
-      end: ObjC.unwrap(fmt.stringFromDate(ev.endDate)),
-      allDay: ev.allDay ? true : false,
-      location: ev.location ? ObjC.unwrap(ev.location) : '',
-      url: ev.URL ? ObjC.unwrap(ev.URL.absoluteString) : '',
-      notes: ev.notes ? ObjC.unwrap(ev.notes) : '',
-      attendees: attendees,
-      calendar: ev.calendar && ev.calendar.title ? ObjC.unwrap(ev.calendar.title) : ''
-    });
-  }
-  return JSON.stringify({ events: out });
-}
-`;
-}
-
-// Script de ESCRITURA: crea un evento en el calendario por defecto.
-function buildCreateScript({ title, startEpoch, endEpoch, notes, url }) {
-  return `
-ObjC.import('EventKit');
-ObjC.import('Foundation');
-function run() {
-${REQUEST_ACCESS}
-  var ev = $.EKEvent.eventWithEventStore(store);
-  ev.title = ${JSON.stringify(title || "Reunión")};
-  ev.startDate = $.NSDate.dateWithTimeIntervalSince1970(${startEpoch});
-  ev.endDate = $.NSDate.dateWithTimeIntervalSince1970(${endEpoch});
-  var notes = ${JSON.stringify(notes || "")};
-  if (notes) ev.notes = notes;
-  var url = ${JSON.stringify(url || "")};
-  if (url) { try { ev.URL = $.NSURL.URLWithString(url); } catch (e) {} }
-  ev.calendar = store.defaultCalendarForNewEvents;
-  var err = $();
-  var ok = store.saveEventSpanError(ev, 0 /* EKSpanThisEvent */, err);
-  if (!ok) return JSON.stringify({ error: 'save-failed' });
-  return JSON.stringify({ id: ObjC.unwrap(ev.eventIdentifier) });
-}
-`;
-}
-
-// Script de ACTUALIZACIÓN de un evento existente por su identificador.
-function buildUpdateScript({ eventId, title, startEpoch, endEpoch, notes, url }) {
-  return `
-ObjC.import('EventKit');
-ObjC.import('Foundation');
-function run() {
-${REQUEST_ACCESS}
-  var ev = store.eventWithIdentifier(${JSON.stringify(eventId)});
-  if (!ev || !ObjC.unwrap(ev.eventIdentifier)) return JSON.stringify({ error: 'not-found' });
-  ev.title = ${JSON.stringify(title || "Reunión")};
-  ev.startDate = $.NSDate.dateWithTimeIntervalSince1970(${startEpoch});
-  ev.endDate = $.NSDate.dateWithTimeIntervalSince1970(${endEpoch});
-  ev.notes = ${JSON.stringify(notes || "")};
-  var url = ${JSON.stringify(url || "")};
-  if (url) { try { ev.URL = $.NSURL.URLWithString(url); } catch (e) {} }
-  var err = $();
-  var ok = store.saveEventSpanError(ev, 0, err);
-  if (!ok) return JSON.stringify({ error: 'save-failed' });
-  return JSON.stringify({ id: ObjC.unwrap(ev.eventIdentifier) });
-}
-`;
-}
-
-// Script de ELIMINACIÓN de un evento por su identificador.
-function buildDeleteScript(eventId) {
-  return `
-ObjC.import('EventKit');
-ObjC.import('Foundation');
-function run() {
-${REQUEST_ACCESS}
-  var ev = store.eventWithIdentifier(${JSON.stringify(eventId)});
-  if (!ev || !ObjC.unwrap(ev.eventIdentifier)) return JSON.stringify({ ok: true }); // ya no existe
-  var err = $();
-  var ok = store.removeEventSpanError(ev, 0, err);
-  return JSON.stringify({ ok: ok ? true : false });
-}
-`;
-}
 
 function runJXA(script) {
   return new Promise((resolve) => {
@@ -146,10 +19,16 @@ function runJXA(script) {
     child.stderr.on("data", (d) => (stderr += d));
     child.on("error", () => resolve({ error: "spawn" }));
     child.on("close", () => {
+      const out = stdout.trim();
+      if (!out) {
+        const msg = stderr.trim().split("\n").slice(-1)[0] || "sin salida";
+        console.log(`[calendar] JXA error: ${msg}`);
+        return resolve({ error: "jxa", stderr: msg });
+      }
       try {
-        resolve(JSON.parse(stdout.trim() || "{}"));
+        resolve(JSON.parse(out));
       } catch {
-        resolve({ error: stderr ? "script" : "parse" });
+        resolve({ error: "parse", stderr: stderr.trim().slice(0, 300) });
       }
     });
     child.stdin.write(script + "\n");
@@ -157,7 +36,117 @@ function runJXA(script) {
   });
 }
 
-// Extrae un enlace de videollamada de los campos de texto del evento.
+// ── Scripts JXA (Calendar.app) ─────────────────────────────────
+
+function buildReadScript(startMs, endMs) {
+  return `
+function run() {
+  var Cal = Application('Calendar');
+  var start = new Date(${startMs});
+  var end = new Date(${endMs});
+  var out = [];
+  var cals = Cal.calendars();
+  for (var i = 0; i < cals.length; i++) {
+    var set;
+    try {
+      set = cals[i].events.whose({ _and: [
+        { startDate: { _greaterThanEquals: start } },
+        { startDate: { _lessThan: end } }
+      ]});
+    } catch (e) { continue; }
+    var titles, starts, ends, allday, locs, urls, descs, uids, calName;
+    try {
+      titles = set.summary();
+      starts = set.startDate();
+      ends = set.endDate();
+      allday = set.alldayEvent();
+      locs = set.location();
+      urls = set.url();
+      descs = set.description();
+      uids = set.uid();
+      calName = cals[i].name();
+    } catch (e) { continue; }
+    for (var j = 0; j < titles.length; j++) {
+      out.push({
+        id: uids[j] || (calName + ':' + j),
+        title: titles[j] || '(sin título)',
+        start: starts[j] ? starts[j].toISOString() : null,
+        end: ends[j] ? ends[j].toISOString() : null,
+        allDay: allday[j] ? true : false,
+        location: locs[j] || '',
+        url: urls[j] || '',
+        notes: descs[j] || '',
+        attendees: [],
+        calendar: calName
+      });
+    }
+  }
+  return JSON.stringify({ events: out, calendars: cals.length });
+}
+`;
+}
+
+function buildCreateScript({ title, startMs, endMs, notes, url }) {
+  return `
+function run() {
+  var Cal = Application('Calendar');
+  var writables = Cal.calendars.whose({ writable: true })();
+  var target = writables.length ? writables[0] : Cal.calendars()[0];
+  if (!target) return JSON.stringify({ error: 'no-calendar' });
+  var ev = Cal.Event({
+    summary: ${JSON.stringify(title || "Reunión")},
+    startDate: new Date(${startMs}),
+    endDate: new Date(${endMs}),
+    description: ${JSON.stringify(notes || "")},
+    url: ${JSON.stringify(url || "")}
+  });
+  target.events.push(ev);
+  return JSON.stringify({ id: ev.uid() });
+}
+`;
+}
+
+function findEventBlock(eventId) {
+  return `
+  var Cal = Application('Calendar');
+  var cals = Cal.calendars();
+  var found = null;
+  for (var i = 0; i < cals.length; i++) {
+    var m;
+    try { m = cals[i].events.whose({ uid: ${JSON.stringify(eventId)} })(); } catch (e) { continue; }
+    if (m && m.length) { found = m[0]; break; }
+  }
+`;
+}
+
+function buildUpdateScript({ eventId, title, startMs, endMs, notes, url }) {
+  return `
+function run() {
+${findEventBlock(eventId)}
+  if (!found) return JSON.stringify({ error: 'not-found' });
+  found.summary = ${JSON.stringify(title || "Reunión")};
+  found.startDate = new Date(${startMs});
+  found.endDate = new Date(${endMs});
+  found.description = ${JSON.stringify(notes || "")};
+  found.url = ${JSON.stringify(url || "")};
+  return JSON.stringify({ id: found.uid() });
+}
+`;
+}
+
+function buildDeleteScript(eventId) {
+  return `
+function run() {
+${findEventBlock(eventId)}
+  if (!found) return JSON.stringify({ ok: true });
+  Application('Calendar').delete(found);
+  return JSON.stringify({ ok: true });
+}
+`;
+}
+
+// ── Helpers de videollamada ────────────────────────────────────
+
 const JOIN_RE = /(https?:\/\/[^\s"'<>]*(?:teams\.microsoft\.com|teams\.live\.com|meet\.google\.com|zoom\.us|webex\.com)[^\s"'<>]*)/i;
 
 function extractJoinUrl(ev) {
@@ -177,25 +166,27 @@ function platformOf(joinUrl) {
   return null;
 }
 
-const toEpoch = (iso) => Math.floor(new Date(iso).getTime() / 1000);
+const ms = (iso) => new Date(iso).getTime();
 
-/** Eventos (incluidos all-day) en el rango [startISO, endISO). */
+// ── API pública ────────────────────────────────────────────────
+
 async function getEventsInRange(startISO, endISO) {
   if (process.platform !== "darwin") return { events: [] };
-  const parsed = await runJXA(buildReadScript(toEpoch(startISO), toEpoch(endISO)));
+  const parsed = await runJXA(buildReadScript(ms(startISO), ms(endISO)));
   if (parsed.error) {
-    console.log(`[calendar] range ${startISO}..${endISO} → error: ${parsed.error}`);
+    console.log(`[calendar] range ${startISO}..${endISO} → error: ${parsed.error}${parsed.stderr ? " | " + parsed.stderr : ""}`);
     return { events: [], error: parsed.error };
   }
-  const events = (parsed.events || []).map((ev) => {
-    const joinUrl = extractJoinUrl(ev);
-    return { ...ev, joinUrl, platform: platformOf(joinUrl) };
-  });
-  console.log(`[calendar] range ${startISO}..${endISO} → ${events.length} eventos`);
-  return { events };
+  const events = (parsed.events || [])
+    .filter((ev) => ev.start && ev.end)
+    .map((ev) => {
+      const joinUrl = extractJoinUrl(ev);
+      return { ...ev, joinUrl, platform: platformOf(joinUrl) };
+    });
+  console.log(`[calendar] range ${startISO}..${endISO} → ${events.length} eventos (calendarios: ${parsed.calendars})`);
+  return { events, calendars: parsed.calendars };
 }
 
-/** Eventos de hoy (wrapper de getEventsInRange para la agenda). */
 function getTodayEvents() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -203,31 +194,16 @@ function getTodayEvents() {
   return getEventsInRange(start.toISOString(), end.toISOString());
 }
 
-/** Crea un evento en el calendario por defecto. Devuelve { id } o { error }. */
 async function createCalendarEvent(payload) {
   if (process.platform !== "darwin") return { error: "unsupported" };
-  return runJXA(
-    buildCreateScript({
-      ...payload,
-      startEpoch: toEpoch(payload.startISO),
-      endEpoch: toEpoch(payload.endISO),
-    }),
-  );
+  return runJXA(buildCreateScript({ ...payload, startMs: ms(payload.startISO), endMs: ms(payload.endISO) }));
 }
 
-/** Actualiza un evento existente. Devuelve { id } o { error }. */
 async function updateCalendarEvent(payload) {
   if (process.platform !== "darwin") return { error: "unsupported" };
-  return runJXA(
-    buildUpdateScript({
-      ...payload,
-      startEpoch: toEpoch(payload.startISO),
-      endEpoch: toEpoch(payload.endISO),
-    }),
-  );
+  return runJXA(buildUpdateScript({ ...payload, startMs: ms(payload.startISO), endMs: ms(payload.endISO) }));
 }
 
-/** Elimina un evento por su identificador. Devuelve { ok } o { error }. */
 async function deleteCalendarEvent(eventId) {
   if (process.platform !== "darwin") return { error: "unsupported" };
   return runJXA(buildDeleteScript(eventId));
