@@ -83,7 +83,10 @@ function createWindow() {
 
   mainWindow.loadURL(`http://localhost:${PORT}`);
 
-  if (isDev) mainWindow.webContents.openDevTools({ mode: "detach" });
+  // DevTools solo si DEVTOOLS=1 (evita ruido en consola). Atajo: Cmd+Opt+I.
+  if (isDev && process.env.DEVTOOLS === "1") {
+    mainWindow.webContents.openDevTools({ mode: "detach" });
+  }
 
   // Abrir enlaces externos en el navegador del sistema.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
