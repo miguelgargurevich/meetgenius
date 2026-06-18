@@ -145,12 +145,15 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        {macosError === "no-access" && (
+        {desktop && macosError && (
           <div className="flex items-start gap-2 rounded-md border border-[var(--warning)]/40 bg-[color-mix(in_oklab,var(--warning)_8%,transparent)] p-3 text-xs">
             <AlertCircle className="mt-0.5 size-4 shrink-0 text-[var(--warning)]" />
             <p className="text-[var(--muted-foreground)]">
-              Sin acceso a Calendarios: solo se muestran las reuniones de la app. Concede el permiso en Ajustes
-              del Sistema → Privacidad y seguridad → Calendarios → MeetGenius y reinicia.
+              No se pudo leer el calendario de macOS (solo se muestran las reuniones de la app). Concede el
+              permiso de <span className="font-medium text-[var(--foreground)]">Automatización → Calendario</span> a
+              la app en Ajustes del Sistema → Privacidad y seguridad → Automatización. En la app instalada (.dmg)
+              aparece como <span className="font-medium text-[var(--foreground)]">MeetGenius</span>; en desarrollo,
+              como <span className="font-medium text-[var(--foreground)]">Visual Studio Code</span>.
             </p>
           </div>
         )}
