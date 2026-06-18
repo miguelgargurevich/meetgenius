@@ -39,6 +39,8 @@ export default function CalendarPage() {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [defaultDate, setDefaultDate] = React.useState<string | undefined>();
   const [syncing, setSyncing] = React.useState(false);
+  const [desktop, setDesktop] = React.useState(false);
+  React.useEffect(() => setDesktop(isDesktopApp()), []);
 
   const { rangeStart, rangeEnd } = React.useMemo(() => {
     if (view === "month") {
@@ -139,7 +141,7 @@ export default function CalendarPage() {
                 </button>
               ))}
             </div>
-            {isDesktopApp() && (
+            {desktop && (
               <Button variant="outline" size="sm" onClick={onSync} disabled={syncing}>
                 <RefreshCw className={`size-4 ${syncing ? "animate-spin" : ""}`} /> Sincronizar
               </Button>

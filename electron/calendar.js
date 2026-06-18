@@ -28,16 +28,17 @@ const REQUEST_ACCESS = `
   if (!granted) return JSON.stringify({ error: 'no-access' });
 `;
 
-// Script de LECTURA: eventos en [startISO, endISO).
-function buildReadScript(startISO, endISO) {
+// Script de LECTURA: eventos en [start, end). Las fechas se pasan como
+// epoch (segundos) para evitar problemas de parseo ISO en macOS.
+function buildReadScript(startEpoch, endEpoch) {
   return `
 ObjC.import('EventKit');
 ObjC.import('Foundation');
 function run() {
 ${REQUEST_ACCESS}
   var fmt = $.NSISO8601DateFormatter.alloc.init;
-  var start = fmt.dateFromString(${JSON.stringify(startISO)});
-  var end = fmt.dateFromString(${JSON.stringify(endISO)});
+  var start = $.NSDate.dateWithTimeIntervalSince1970(${startEpoch});
+  var end = $.NSDate.dateWithTimeIntervalSince1970(${endEpoch});
   var pred = store.predicateForEventsWithStartDateEndDateCalendars(start, end, $());
   var events = store.eventsMatchingPredicate(pred);
   var out = [];
@@ -73,17 +74,16 @@ ${REQUEST_ACCESS}
 }
 
 // Script de ESCRITURA: crea un evento en el calendario por defecto.
-function buildCreateScript({ title, startISO, endISO, notes, url }) {
+function buildCreateScript({ title, startEpoch, endEpoch, notes, url }) {
   return `
 ObjC.import('EventKit');
 ObjC.import('Foundation');
 function run() {
 ${REQUEST_ACCESS}
-  var fmt = $.NSISO8601DateFormatter.alloc.init;
   var ev = $.EKEvent.eventWithEventStore(store);
   ev.title = ${JSON.stringify(title || "Reunión")};
-  ev.startDate = fmt.dateFromString(${JSON.stringify(startISO)});
-  ev.endDate = fmt.dateFromString(${JSON.stringify(endISO)});
+  ev.startDate = $.NSDate.dateWithTimeIntervalSince1970(${startEpoch});
+  ev.endDate = $.NSDate.dateWithTimeIntervalSince1970(${endEpoch});
   var notes = ${JSON.stringify(notes || "")};
   if (notes) ev.notes = notes;
   var url = ${JSON.stringify(url || "")};
@@ -98,7 +98,7 @@ ${REQUEST_ACCESS}
 }
 
 // Script de ACTUALIZACIÓN de un evento existente por su identificador.
-function buildUpdateScript({ eventId, title, startISO, endISO, notes, url }) {
+function buildUpdateScript({ eventId, title, startEpoch, endEpoch, notes, url }) {
   return `
 ObjC.import('EventKit');
 ObjC.import('Foundation');
@@ -106,10 +106,9 @@ function run() {
 ${REQUEST_ACCESS}
   var ev = store.eventWithIdentifier(${JSON.stringify(eventId)});
   if (!ev || !ObjC.unwrap(ev.eventIdentifier)) return JSON.stringify({ error: 'not-found' });
-  var fmt = $.NSISO8601DateFormatter.alloc.init;
   ev.title = ${JSON.stringify(title || "Reunión")};
-  ev.startDate = fmt.dateFromString(${JSON.stringify(startISO)});
-  ev.endDate = fmt.dateFromString(${JSON.stringify(endISO)});
+  ev.startDate = $.NSDate.dateWithTimeIntervalSince1970(${startEpoch});
+  ev.endDate = $.NSDate.dateWithTimeIntervalSince1970(${endEpoch});
   ev.notes = ${JSON.stringify(notes || "")};
   var url = ${JSON.stringify(url || "")};
   if (url) { try { ev.URL = $.NSURL.URLWithString(url); } catch (e) {} }
@@ -178,10 +177,12 @@ function platformOf(joinUrl) {
   return null;
 }
 
+const toEpoch = (iso) => Math.floor(new Date(iso).getTime() / 1000);
+
 /** Eventos (con videollamada detectada) en el rango [startISO, endISO). */
 async function getEventsInRange(startISO, endISO) {
   if (process.platform !== "darwin") return { events: [] };
-  const parsed = await runJXA(buildReadScript(startISO, endISO));
+  const parsed = await runJXA(buildReadScript(toEpoch(startISO), toEpoch(endISO)));
   if (parsed.error) return { events: [], error: parsed.error };
   const events = (parsed.events || [])
     .filter((ev) => !ev.allDay)
@@ -203,13 +204,25 @@ function getTodayEvents() {
 /** Crea un evento en el calendario por defecto. Devuelve { id } o { error }. */
 async function createCalendarEvent(payload) {
   if (process.platform !== "darwin") return { error: "unsupported" };
-  return runJXA(buildCreateScript(payload));
+  return runJXA(
+    buildCreateScript({
+      ...payload,
+      startEpoch: toEpoch(payload.startISO),
+      endEpoch: toEpoch(payload.endISO),
+    }),
+  );
 }
 
 /** Actualiza un evento existente. Devuelve { id } o { error }. */
 async function updateCalendarEvent(payload) {
   if (process.platform !== "darwin") return { error: "unsupported" };
-  return runJXA(buildUpdateScript(payload));
+  return runJXA(
+    buildUpdateScript({
+      ...payload,
+      startEpoch: toEpoch(payload.startISO),
+      endEpoch: toEpoch(payload.endISO),
+    }),
+  );
 }
 
 /** Elimina un evento por su identificador. Devuelve { ok } o { error }. */

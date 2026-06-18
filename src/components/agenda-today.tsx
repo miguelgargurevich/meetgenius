@@ -25,8 +25,10 @@ export function AgendaToday() {
   const router = useRouter();
   const { data, isLoading } = useTodayAgenda();
   const [creatingId, setCreatingId] = React.useState<string | null>(null);
+  const [desktop, setDesktop] = React.useState(false);
+  React.useEffect(() => setDesktop(isDesktopApp()), []);
 
-  if (!isDesktopApp()) return null; // solo en escritorio
+  if (!desktop) return null; // solo en escritorio (evita mismatch de hidratación)
 
   const record = async (ev: CalendarEvent) => {
     setCreatingId(ev.id);
