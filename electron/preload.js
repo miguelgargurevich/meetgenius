@@ -19,4 +19,12 @@ contextBridge.exposeInMainWorld("meetgenius", {
 
   // Agenda de hoy (calendario de macOS).
   getTodayAgenda: () => ipcRenderer.invoke("calendar-today"),
+
+  // Recordatorios de reuniones.
+  setReminders: (cfg) => ipcRenderer.send("reminders-config", cfg),
+  onReminderRecord: (cb) => {
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on("reminder:record", handler);
+    return () => ipcRenderer.removeListener("reminder:record", handler);
+  },
 });

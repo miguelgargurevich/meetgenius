@@ -5,6 +5,7 @@ const { app, BrowserWindow, shell, session, desktopCapturer, systemPreferences, 
 const path = require("path");
 const { startMeetingDetector, runDetection } = require("./meeting-detector");
 const { getTodayEvents } = require("./calendar");
+const { startReminders, setReminderConfig } = require("./reminders");
 
 // Estado del permiso de grabación de pantalla (requisito del loopback en macOS).
 ipcMain.handle("screen-access-status", () => {
@@ -18,7 +19,11 @@ ipcMain.handle("meeting-status", () => runDetection());
 // Agenda de hoy desde el calendario de macOS (EventKit).
 ipcMain.handle("calendar-today", () => getTodayEvents());
 
+// Configuración de recordatorios (on/off + minutos de antelación).
+ipcMain.on("reminders-config", (_e, cfg) => setReminderConfig(cfg || {}));
+
 let stopDetector = null;
+let stopReminders = null;
 
 const isDev = process.env.ELECTRON_DEV === "1";
 const PORT = process.env.PORT || 3000;
@@ -78,9 +83,14 @@ function createWindow() {
     }
   });
 
+  // Recordatorios nativos antes de cada reunión con videollamada.
+  stopReminders = startReminders(() => mainWindow);
+
   mainWindow.on("closed", () => {
     if (stopDetector) stopDetector();
+    if (stopReminders) stopReminders();
     stopDetector = null;
+    stopReminders = null;
     mainWindow = null;
   });
 }

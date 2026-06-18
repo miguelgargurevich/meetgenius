@@ -2,21 +2,26 @@
 
 import * as React from "react";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Search, Radio } from "lucide-react";
+import { Moon, Sun, Search, Radio, Bell, BellOff } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar } from "@/components/ui/misc";
-import { isDesktopApp } from "@/lib/desktop";
+import { desktop as desktopBridge, isDesktopApp } from "@/lib/desktop";
 import { cn } from "@/lib/utils";
 
 export function Topbar() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
   const [autoRecord, setAutoRecord] = React.useState(false);
+  const [reminders, setReminders] = React.useState(true);
   const [desktop, setDesktop] = React.useState(false);
   React.useEffect(() => {
     setMounted(true);
-    setDesktop(isDesktopApp());
+    const isDesk = isDesktopApp();
+    setDesktop(isDesk);
     setAutoRecord(localStorage.getItem("mg:autoRecord") === "1");
+    const remOn = localStorage.getItem("mg:reminders") !== "0"; // por defecto activos
+    setReminders(remOn);
+    if (isDesk) desktopBridge()?.setReminders?.({ enabled: remOn });
   }, []);
 
   const toggleAutoRecord = () => {
@@ -27,6 +32,18 @@ export function Topbar() {
       next
         ? "Auto-grabación activada: grabaré las reuniones detectadas automáticamente."
         : "Auto-grabación desactivada: te preguntaré antes de grabar.",
+    );
+  };
+
+  const toggleReminders = () => {
+    const next = !reminders;
+    setReminders(next);
+    localStorage.setItem("mg:reminders", next ? "1" : "0");
+    desktopBridge()?.setReminders?.({ enabled: next });
+    toast.success(
+      next
+        ? "Recordatorios activados: te avisaré antes de cada reunión."
+        : "Recordatorios desactivados.",
     );
   };
 
@@ -46,19 +63,34 @@ export function Topbar() {
 
       <div className="flex items-center gap-3">
         {mounted && desktop && (
-          <button
-            onClick={toggleAutoRecord}
-            title="Grabar automáticamente las reuniones detectadas"
-            className={cn(
-              "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
-              autoRecord
-                ? "border-transparent bg-[color-mix(in_oklab,var(--primary)_18%,transparent)] text-[var(--brand-400)]"
-                : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
-            )}
-          >
-            <Radio className={cn("size-3.5", autoRecord && "animate-recording")} />
-            Auto-grabar
-          </button>
+          <>
+            <button
+              onClick={toggleReminders}
+              title="Avisarme antes de cada reunión"
+              className={cn(
+                "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                reminders
+                  ? "border-transparent bg-[color-mix(in_oklab,var(--primary)_18%,transparent)] text-[var(--brand-400)]"
+                  : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+              )}
+            >
+              {reminders ? <Bell className="size-3.5" /> : <BellOff className="size-3.5" />}
+              Recordatorios
+            </button>
+            <button
+              onClick={toggleAutoRecord}
+              title="Grabar automáticamente las reuniones detectadas"
+              className={cn(
+                "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                autoRecord
+                  ? "border-transparent bg-[color-mix(in_oklab,var(--primary)_18%,transparent)] text-[var(--brand-400)]"
+                  : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+              )}
+            >
+              <Radio className={cn("size-3.5", autoRecord && "animate-recording")} />
+              Auto-grabar
+            </button>
+          </>
         )}
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

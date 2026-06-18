@@ -28,29 +28,12 @@ export function MeetingWatcher() {
   const handledRef = React.useRef(false);
   const creatingRef = React.useRef(false);
 
-  const startForDetected = React.useCallback(
-    async (status: MeetingStatus) => {
+  const createAndRecord = React.useCallback(
+    async (title: string, participants: string[]) => {
       if (creatingRef.current) return;
       creatingRef.current = true;
       try {
-        // Intentamos enriquecer con el evento del calendario en curso.
-        let title = `Reunión en ${status.detail ?? "videollamada"} — ${format(new Date(), "d MMM HH:mm", { locale: es })}`;
-        let participants: string[] = [];
-        try {
-          const agenda = await desktop()?.getTodayAgenda?.();
-          const current = findCurrentEvent(agenda?.events ?? []);
-          if (current) {
-            title = current.title;
-            participants = current.attendees.slice(0, 25);
-          }
-        } catch {
-          /* sin calendario: usamos el título genérico */
-        }
-
-        const meeting = await api.post<{ id: string }>("/api/meetings", {
-          title,
-          participants,
-        });
+        const meeting = await api.post<{ id: string }>("/api/meetings", { title, participants });
         toast.dismiss(TOAST_ID);
         router.push(`/meetings/${meeting.id}?record=1`);
       } catch (e) {
@@ -60,6 +43,26 @@ export function MeetingWatcher() {
       }
     },
     [router],
+  );
+
+  const startForDetected = React.useCallback(
+    async (status: MeetingStatus) => {
+      // Intentamos enriquecer con el evento del calendario en curso.
+      let title = `Reunión en ${status.detail ?? "videollamada"} — ${format(new Date(), "d MMM HH:mm", { locale: es })}`;
+      let participants: string[] = [];
+      try {
+        const agenda = await desktop()?.getTodayAgenda?.();
+        const current = findCurrentEvent(agenda?.events ?? []);
+        if (current) {
+          title = current.title;
+          participants = current.attendees.slice(0, 25);
+        }
+      } catch {
+        /* sin calendario: usamos el título genérico */
+      }
+      await createAndRecord(title, participants);
+    },
+    [createAndRecord],
   );
 
   React.useEffect(() => {
@@ -100,6 +103,16 @@ export function MeetingWatcher() {
 
     return unsubscribe;
   }, [startForDetected]);
+
+  // Clic en una notificación de recordatorio → grabar ese evento.
+  React.useEffect(() => {
+    if (!isDesktopApp()) return;
+    const bridge = desktop();
+    if (!bridge?.onReminderRecord) return;
+    return bridge.onReminderRecord((payload) => {
+      createAndRecord(payload.title, payload.attendees.slice(0, 25));
+    });
+  }, [createAndRecord]);
 
   return null;
 }

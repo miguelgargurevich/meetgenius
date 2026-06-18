@@ -26,6 +26,13 @@ export interface TodayAgenda {
   error?: string;
 }
 
+export interface ReminderPayload {
+  title: string;
+  attendees: string[];
+  platform: "meet" | "teams" | "zoom" | "webex" | null;
+  joinUrl: string | null;
+}
+
 interface DesktopBridge {
   platform: string;
   isDesktop?: boolean;
@@ -34,6 +41,8 @@ interface DesktopBridge {
   getMeetingStatus?: () => Promise<MeetingStatus>;
   onMeetingStatus?: (cb: (status: MeetingStatus) => void) => () => void;
   getTodayAgenda?: () => Promise<TodayAgenda>;
+  setReminders?: (cfg: { enabled: boolean; leadMinutes?: number }) => void;
+  onReminderRecord?: (cb: (payload: ReminderPayload) => void) => () => void;
 }
 
 export function desktop(): DesktopBridge | undefined {

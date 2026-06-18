@@ -115,6 +115,10 @@ MeetGenius lee tu **calendario de macOS** vía **EventKit** — esto cubre de un
 
 > Requisito: tener la cuenta (p. ej. Outlook/Microsoft 365) agregada en **Calendario.app** del Mac. Integración OAuth directa con Google/Microsoft Graph queda en el roadmap.
 
+### Recordatorios nativos (escritorio)
+
+MeetGenius te avisa con una **notificación nativa de macOS** ~2 min antes de cada reunión con videollamada de tu agenda. Al hacer **clic** en la notificación, la app se enfoca y **empieza a grabar** ese evento (con su título e invitados reales). Se activa/desactiva con el botón **Recordatorios** de la barra superior.
+
 ## Cambiar de proveedor IA
 Edita `.env`:
 ```
