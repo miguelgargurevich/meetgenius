@@ -146,13 +146,28 @@ async function startProductionServer() {
   loadEnvFile(path.join(__dirname, "..", ".env"));
 
   // Base de datos SQLite en el directorio de datos del usuario (escribible).
-  // En el primer arranque copiamos el template empaquetado (schema + datos demo).
+  // Copiamos el template empaquetado en el primer arranque, y lo refrescamos si
+  // cambió la versión del esquema (evita DBs desfasadas tras actualizar la app).
+  // Nota: refrescar reinicia los datos locales; mientras el esquema esté en
+  // evolución es el comportamiento esperado (migraciones formales más adelante).
+  const DB_SCHEMA_VERSION = "3"; // súbelo al cambiar el schema de Prisma
   const fs = require("fs");
   const dbPath = path.join(app.getPath("userData"), "meetgenius.db");
-  if (!fs.existsSync(dbPath)) {
-    const template = path.join(standaloneDir, "prisma", "template.db");
+  const versionPath = path.join(app.getPath("userData"), "db.version");
+  const template = path.join(standaloneDir, "prisma", "template.db");
+  let currentVersion = null;
+  try {
+    currentVersion = fs.readFileSync(versionPath, "utf8").trim();
+  } catch {
+    /* sin versión previa */
+  }
+  if (!fs.existsSync(dbPath) || currentVersion !== DB_SCHEMA_VERSION) {
     try {
-      if (fs.existsSync(template)) fs.copyFileSync(template, dbPath);
+      if (fs.existsSync(template)) {
+        fs.copyFileSync(template, dbPath);
+        fs.writeFileSync(versionPath, DB_SCHEMA_VERSION);
+        console.log(`[db] base inicializada (esquema v${DB_SCHEMA_VERSION})`);
+      }
     } catch (err) {
       console.error("No se pudo inicializar la base de datos:", err);
     }
