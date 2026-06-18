@@ -88,7 +88,14 @@ npm run build:desktop   # genera el .dmg en release/
 
 ## Flujo principal
 
-1. **Crear reunión** → 2. **Grabar** (micrófono, pausar/reanudar) → 3. Al finalizar, el pipeline transcribe (Whisper) y **analiza con Grok** → 4. Se generan **resumen, tareas, acuerdos, riesgos, próximos pasos, sentimiento** → 5. **Exportar** PDF/Excel → 6. **Ask MeetGenius**: pregunta en lenguaje natural sobre tu historial.
+1. **Crear reunión** → 2. **Grabar** (pausar/reanudar) → 3. Al finalizar, el pipeline transcribe (Whisper) y **analiza con Groq** → 4. Se generan **resumen, tareas, acuerdos, riesgos, próximos pasos, sentimiento** → 5. **Exportar** PDF/Excel → 6. **Ask MeetGenius**: pregunta en lenguaje natural sobre tu historial.
+
+### Captura de audio (micrófono + sistema)
+
+- **En el navegador** (`npm run dev`): se graba **solo tu micrófono** (límite de la plataforma web).
+- **En la app de escritorio** (`npm run desktop`): se captura **tu micrófono + el audio del sistema** (las voces de los demás en Meet/Teams), mezclados en una sola pista. En macOS usa **ScreenCaptureKit** vía Electron — la primera vez pide permiso de **Grabación de pantalla** (Ajustes del Sistema → Privacidad y seguridad → Grabación de pantalla). Sin ese permiso, degrada a solo micrófono y te avisa en la UI.
+
+> Hoy la grabación es **manual** (creas la reunión y pulsas Grabar). En el roadmap: integración de calendario y autodetección de llamada para grabar sin intervención.
 
 ## Cambiar de proveedor IA
 Edita `.env`:

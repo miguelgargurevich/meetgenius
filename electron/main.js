@@ -1,8 +1,14 @@
 // MeetGenius — proceso principal de Electron.
 // En desarrollo carga el servidor Next (localhost:3000).
 // En producción levanta el servidor Next standalone embebido y lo carga.
-const { app, BrowserWindow, shell, session } = require("electron");
+const { app, BrowserWindow, shell, session, desktopCapturer, systemPreferences, ipcMain } = require("electron");
 const path = require("path");
+
+// Estado del permiso de grabación de pantalla (requisito del loopback en macOS).
+ipcMain.handle("screen-access-status", () => {
+  if (process.platform !== "darwin") return "granted";
+  return systemPreferences.getMediaAccessStatus("screen"); // 'granted' | 'denied' | 'restricted' | 'not-determined'
+});
 
 const isDev = process.env.ELECTRON_DEV === "1";
 const PORT = process.env.PORT || 3000;
@@ -24,10 +30,26 @@ function createWindow() {
     },
   });
 
-  // Permitir acceso al micrófono (grabación) sin diálogo nativo extra.
+  // Permitir acceso a micrófono y captura de pantalla/audio.
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => {
-    cb(permission === "media");
+    cb(["media", "display-capture", "audioCapture"].includes(permission));
   });
+
+  // Captura del AUDIO DEL SISTEMA (voces de los demás en Meet/Teams).
+  // En macOS 13+, `audio: "loopback"` usa ScreenCaptureKit: cuando el
+  // renderer llama getDisplayMedia(), devolvemos una fuente de pantalla
+  // con loopback de audio, sin mostrar el selector nativo.
+  session.defaultSession.setDisplayMediaRequestHandler(
+    (_request, callback) => {
+      desktopCapturer
+        .getSources({ types: ["screen"] })
+        .then((sources) => {
+          callback({ video: sources[0], audio: "loopback" });
+        })
+        .catch(() => callback({}));
+    },
+    { useSystemPicker: false },
+  );
 
   mainWindow.loadURL(`http://localhost:${PORT}`);
 

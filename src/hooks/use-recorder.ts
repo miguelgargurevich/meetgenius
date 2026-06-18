@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { captureMeetingAudio, type CaptureMode, type MeetingCapture } from "@/lib/audio-capture";
 
 type RecorderState = "idle" | "recording" | "paused" | "stopped";
 
@@ -12,10 +13,11 @@ export function useRecorder() {
   const [state, setState] = React.useState<RecorderState>("idle");
   const [seconds, setSeconds] = React.useState(0);
   const [error, setError] = React.useState<string | null>(null);
+  const [mode, setMode] = React.useState<CaptureMode | null>(null);
 
   const recorderRef = React.useRef<MediaRecorder | null>(null);
   const chunksRef = React.useRef<Blob[]>([]);
-  const streamRef = React.useRef<MediaStream | null>(null);
+  const captureRef = React.useRef<MeetingCapture | null>(null);
   const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
   const tick = React.useCallback((on: boolean) => {
@@ -30,12 +32,13 @@ export function useRecorder() {
   const start = React.useCallback(async () => {
     try {
       setError(null);
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
+      const capture = await captureMeetingAudio();
+      captureRef.current = capture;
+      setMode(capture.mode);
       const mime = MediaRecorder.isTypeSupported("audio/webm")
         ? "audio/webm"
         : "audio/mp4";
-      const rec = new MediaRecorder(stream, { mimeType: mime });
+      const rec = new MediaRecorder(capture.stream, { mimeType: mime });
       chunksRef.current = [];
       rec.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
       rec.start(1000);
@@ -67,7 +70,8 @@ export function useRecorder() {
       if (!rec) return resolve(null);
       rec.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: rec.mimeType });
-        streamRef.current?.getTracks().forEach((t) => t.stop());
+        captureRef.current?.cleanup();
+        captureRef.current = null;
         setState("stopped");
         resolve({ blob, durationSec: seconds });
       };
@@ -77,5 +81,5 @@ export function useRecorder() {
 
   React.useEffect(() => () => tick(false), [tick]);
 
-  return { state, seconds, error, start, pause, resume, stop };
+  return { state, seconds, error, mode, start, pause, resume, stop };
 }
