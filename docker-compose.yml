@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: meetgenius-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: meetgenius
+      POSTGRES_PASSWORD: meetgenius
+      POSTGRES_DB: meetgenius
+    ports:
+      - "5432:5432"
+    volumes:
+      - meetgenius_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U meetgenius"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  meetgenius_pgdata:
