@@ -30,7 +30,16 @@
     "productName": "MeetGenius",
     "files": ["electron/**", ".next/standalone/**", ".next/static/**", "public/**", "package.json"],
     "directories": { "output": "release" },
-    "mac": { "category": "public.app-category.productivity", "target": ["dmg"] }
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg"],
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "MeetGenius graba el audio de tus reuniones para transcribirlas y analizarlas.",
+        "NSCalendarsUsageDescription": "MeetGenius lee tu calendario para mostrar la agenda del día y reconocer tus reuniones.",
+        "NSCalendarsFullAccessUsageDescription": "MeetGenius lee tu calendario para mostrar la agenda del día y reconocer tus reuniones.",
+        "NSAppleEventsUsageDescription": "MeetGenius detecta cuándo entras a una videollamada (Meet/Teams/Zoom) para ofrecerte grabarla."
+      }
+    }
   },
   "dependencies": {
     "@prisma/client": "^6.2.1",

@@ -29,6 +29,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 import { useDashboard } from "@/hooks/use-meetings";
+import { AgendaToday } from "@/components/agenda-today";
 import { CHART_COLORS, PRIORITY, AGREEMENT_STATUS } from "@/lib/domain";
 
 const KPIS = [
@@ -65,6 +66,9 @@ export default function DashboardPage() {
       />
 
       <div className="space-y-6 p-8">
+        {/* Agenda de hoy (solo escritorio) */}
+        <AgendaToday />
+
         {/* KPIs */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
           {KPIS.map((kpi) => (

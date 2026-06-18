@@ -4,6 +4,7 @@
 const { app, BrowserWindow, shell, session, desktopCapturer, systemPreferences, ipcMain } = require("electron");
 const path = require("path");
 const { startMeetingDetector, runDetection } = require("./meeting-detector");
+const { getTodayEvents } = require("./calendar");
 
 // Estado del permiso de grabación de pantalla (requisito del loopback en macOS).
 ipcMain.handle("screen-access-status", () => {
@@ -13,6 +14,9 @@ ipcMain.handle("screen-access-status", () => {
 
 // Consulta puntual del estado de reunión (además del push periódico).
 ipcMain.handle("meeting-status", () => runDetection());
+
+// Agenda de hoy desde el calendario de macOS (EventKit).
+ipcMain.handle("calendar-today", () => getTodayEvents());
 
 let stopDetector = null;
 

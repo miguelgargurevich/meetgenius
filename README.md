@@ -105,7 +105,15 @@ MeetGenius detecta automáticamente cuándo entras a una **videollamada** y te o
 
 **Permisos macOS** (se piden una vez): *Automatización* (leer la URL del navegador) y *Accesibilidad* (títulos de ventana de Zoom/Teams). Sin ellos, la autodetección queda inactiva pero la grabación manual sigue funcionando.
 
-> La integración de **calendario** (Google/Microsoft) para anticipar reuniones agendadas queda en el roadmap.
+### Integración de calendario (escritorio)
+
+MeetGenius lee tu **calendario de macOS** vía **EventKit** — esto cubre de una sola vez todas las cuentas que tengas agregadas en Calendario.app (iCloud, **Google**, **Microsoft 365 / Outlook**), sin OAuth.
+
+- **Agenda de hoy** en el dashboard: tus reuniones del día, con detección del enlace de videollamada (Meet/Teams/Zoom/Webex) y botón **Grabar** por evento.
+- Al **autodetectar** una llamada, MeetGenius cruza con el evento en curso para usar su **título e invitados reales** (en vez de un nombre genérico).
+- **Permiso macOS**: *Calendarios* (Ajustes del Sistema → Privacidad y seguridad → Calendarios → MeetGenius). Sin él, la agenda queda inactiva pero todo lo demás funciona.
+
+> Requisito: tener la cuenta (p. ej. Outlook/Microsoft 365) agregada en **Calendario.app** del Mac. Integración OAuth directa con Google/Microsoft Graph queda en el roadmap.
 
 ## Cambiar de proveedor IA
 Edita `.env`:

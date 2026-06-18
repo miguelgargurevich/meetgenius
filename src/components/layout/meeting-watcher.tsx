@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { api } from "@/lib/api-client";
 import { desktop, isDesktopApp, type MeetingStatus } from "@/lib/desktop";
+import { findCurrentEvent } from "@/hooks/use-agenda";
 
 const AUTO_RECORD_KEY = "mg:autoRecord";
 const TOAST_ID = "meeting-detected";
@@ -32,10 +33,23 @@ export function MeetingWatcher() {
       if (creatingRef.current) return;
       creatingRef.current = true;
       try {
-        const title = `Reunión en ${status.detail ?? "videollamada"} — ${format(new Date(), "d MMM HH:mm", { locale: es })}`;
+        // Intentamos enriquecer con el evento del calendario en curso.
+        let title = `Reunión en ${status.detail ?? "videollamada"} — ${format(new Date(), "d MMM HH:mm", { locale: es })}`;
+        let participants: string[] = [];
+        try {
+          const agenda = await desktop()?.getTodayAgenda?.();
+          const current = findCurrentEvent(agenda?.events ?? []);
+          if (current) {
+            title = current.title;
+            participants = current.attendees.slice(0, 25);
+          }
+        } catch {
+          /* sin calendario: usamos el título genérico */
+        }
+
         const meeting = await api.post<{ id: string }>("/api/meetings", {
           title,
-          participants: [],
+          participants,
         });
         toast.dismiss(TOAST_ID);
         router.push(`/meetings/${meeting.id}?record=1`);

@@ -16,4 +16,7 @@ contextBridge.exposeInMainWorld("meetgenius", {
     ipcRenderer.on("meeting:status", handler);
     return () => ipcRenderer.removeListener("meeting:status", handler);
   },
+
+  // Agenda de hoy (calendario de macOS).
+  getTodayAgenda: () => ipcRenderer.invoke("calendar-today"),
 });
