@@ -95,7 +95,17 @@ npm run build:desktop   # genera el .dmg en release/
 - **En el navegador** (`npm run dev`): se graba **solo tu micrófono** (límite de la plataforma web).
 - **En la app de escritorio** (`npm run desktop`): se captura **tu micrófono + el audio del sistema** (las voces de los demás en Meet/Teams), mezclados en una sola pista. En macOS usa **ScreenCaptureKit** vía Electron — la primera vez pide permiso de **Grabación de pantalla** (Ajustes del Sistema → Privacidad y seguridad → Grabación de pantalla). Sin ese permiso, degrada a solo micrófono y te avisa en la UI.
 
-> Hoy la grabación es **manual** (creas la reunión y pulsas Grabar). En el roadmap: integración de calendario y autodetección de llamada para grabar sin intervención.
+### Autodetección de llamadas (escritorio)
+
+MeetGenius detecta automáticamente cuándo entras a una **videollamada** y te ofrece grabarla:
+
+- **Google Meet** y **Teams web**: lee la URL de las pestañas del navegador (Chrome, Edge, Brave, Arc, Safari…) buscando el patrón de "en llamada".
+- **Zoom / Teams escritorio**: inspecciona el título de la ventana de la app.
+- Un *poller* en Electron consulta cada ~7s. Al detectar una llamada, muestra un aviso **"Reunión detectada en X — ¿Grabar?"**. Si activas **Auto-grabar** (botón en la barra superior), la graba sin preguntar.
+
+**Permisos macOS** (se piden una vez): *Automatización* (leer la URL del navegador) y *Accesibilidad* (títulos de ventana de Zoom/Teams). Sin ellos, la autodetección queda inactiva pero la grabación manual sigue funcionando.
+
+> La integración de **calendario** (Google/Microsoft) para anticipar reuniones agendadas queda en el roadmap.
 
 ## Cambiar de proveedor IA
 Edita `.env`:

@@ -2,13 +2,33 @@
 
 import * as React from "react";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Search } from "lucide-react";
+import { Moon, Sun, Search, Radio } from "lucide-react";
+import { toast } from "sonner";
 import { Avatar } from "@/components/ui/misc";
+import { isDesktopApp } from "@/lib/desktop";
+import { cn } from "@/lib/utils";
 
 export function Topbar() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
-  React.useEffect(() => setMounted(true), []);
+  const [autoRecord, setAutoRecord] = React.useState(false);
+  const [desktop, setDesktop] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+    setDesktop(isDesktopApp());
+    setAutoRecord(localStorage.getItem("mg:autoRecord") === "1");
+  }, []);
+
+  const toggleAutoRecord = () => {
+    const next = !autoRecord;
+    setAutoRecord(next);
+    localStorage.setItem("mg:autoRecord", next ? "1" : "0");
+    toast.success(
+      next
+        ? "Auto-grabación activada: grabaré las reuniones detectadas automáticamente."
+        : "Auto-grabación desactivada: te preguntaré antes de grabar.",
+    );
+  };
 
   const openPalette = () =>
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }));
@@ -25,6 +45,21 @@ export function Topbar() {
       </button>
 
       <div className="flex items-center gap-3">
+        {mounted && desktop && (
+          <button
+            onClick={toggleAutoRecord}
+            title="Grabar automáticamente las reuniones detectadas"
+            className={cn(
+              "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
+              autoRecord
+                ? "border-transparent bg-[color-mix(in_oklab,var(--primary)_18%,transparent)] text-[var(--brand-400)]"
+                : "border-[var(--border)] text-[var(--muted-foreground)] hover:bg-[var(--accent)]",
+            )}
+          >
+            <Radio className={cn("size-3.5", autoRecord && "animate-recording")} />
+            Auto-grabar
+          </button>
+        )}
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className="flex size-9 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"

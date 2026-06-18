@@ -5,6 +5,15 @@ contextBridge.exposeInMainWorld("meetgenius", {
   platform: process.platform,
   isDesktop: true,
   version: process.env.npm_package_version || "0.1.0",
+
   // Estado del permiso de grabación de pantalla (para captura de audio del sistema).
   getScreenAccess: () => ipcRenderer.invoke("screen-access-status"),
+
+  // Autodetección de reuniones.
+  getMeetingStatus: () => ipcRenderer.invoke("meeting-status"),
+  onMeetingStatus: (cb) => {
+    const handler = (_e, status) => cb(status);
+    ipcRenderer.on("meeting:status", handler);
+    return () => ipcRenderer.removeListener("meeting:status", handler);
+  },
 });

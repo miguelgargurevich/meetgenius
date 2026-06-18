@@ -4,6 +4,7 @@ import * as React from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { CommandPalette } from "@/components/layout/command-palette";
+import { MeetingWatcher } from "@/components/layout/meeting-watcher";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = React.useState(false);
@@ -16,6 +17,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
       <CommandPalette />
+      <MeetingWatcher />
     </div>
   );
 }

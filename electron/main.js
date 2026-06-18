@@ -3,12 +3,18 @@
 // En producción levanta el servidor Next standalone embebido y lo carga.
 const { app, BrowserWindow, shell, session, desktopCapturer, systemPreferences, ipcMain } = require("electron");
 const path = require("path");
+const { startMeetingDetector, runDetection } = require("./meeting-detector");
 
 // Estado del permiso de grabación de pantalla (requisito del loopback en macOS).
 ipcMain.handle("screen-access-status", () => {
   if (process.platform !== "darwin") return "granted";
   return systemPreferences.getMediaAccessStatus("screen"); // 'granted' | 'denied' | 'restricted' | 'not-determined'
 });
+
+// Consulta puntual del estado de reunión (además del push periódico).
+ipcMain.handle("meeting-status", () => runDetection());
+
+let stopDetector = null;
 
 const isDev = process.env.ELECTRON_DEV === "1";
 const PORT = process.env.PORT || 3000;
@@ -61,7 +67,18 @@ function createWindow() {
     return { action: "deny" };
   });
 
-  mainWindow.on("closed", () => (mainWindow = null));
+  // Autodetección de llamadas: notifica al renderer cuando cambia el estado.
+  stopDetector = startMeetingDetector((status) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("meeting:status", status);
+    }
+  });
+
+  mainWindow.on("closed", () => {
+    if (stopDetector) stopDetector();
+    stopDetector = null;
+    mainWindow = null;
+  });
 }
 
 // En producción, arranca el servidor Next standalone antes de abrir la ventana.
