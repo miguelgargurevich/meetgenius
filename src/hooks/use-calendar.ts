@@ -85,7 +85,10 @@ export function useCalendar(rangeStart: Date, rangeEnd: Date) {
 
   return {
     items,
-    isLoading: meetingsQ.isLoading || macosQ.isLoading,
+    // La rejilla aparece en cuanto cargan las reuniones de la app (rápido);
+    // los eventos de macOS llegan después sin bloquear la vista.
+    isLoading: meetingsQ.isLoading,
+    syncing: macosQ.isFetching,
     macosError: macosQ.data?.error,
   };
 }

@@ -38,7 +38,6 @@ export default function CalendarPage() {
   const [cursor, setCursor] = React.useState(new Date());
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [defaultDate, setDefaultDate] = React.useState<string | undefined>();
-  const [syncing, setSyncing] = React.useState(false);
   const [desktop, setDesktop] = React.useState(false);
   React.useEffect(() => setDesktop(isDesktopApp()), []);
 
@@ -53,11 +52,7 @@ export default function CalendarPage() {
     return { rangeStart: s, rangeEnd: addDays(s, 7) };
   }, [view, cursor]);
 
-  const { items, isLoading, macosError } = useCalendar(rangeStart, rangeEnd);
-
-  React.useEffect(() => {
-    console.log("[MeetGenius] CalendarPage montada · items:", items.length, "· macosError:", macosError);
-  }, [items.length, macosError]);
+  const { items, isLoading, syncing, macosError } = useCalendar(rangeStart, rangeEnd);
 
   const navigate = (dir: -1 | 1) =>
     setCursor((c) => (view === "month" ? addMonths(c, dir) : addWeeks(c, dir)));
@@ -92,11 +87,7 @@ export default function CalendarPage() {
     }
   };
 
-  const onSync = () => {
-    setSyncing(true);
-    sync();
-    setTimeout(() => setSyncing(false), 800);
-  };
+  const onSync = () => sync();
 
   const title =
     view === "month"
@@ -147,7 +138,8 @@ export default function CalendarPage() {
             </div>
             {desktop && (
               <Button variant="outline" size="sm" onClick={onSync} disabled={syncing}>
-                <RefreshCw className={`size-4 ${syncing ? "animate-spin" : ""}`} /> Sincronizar
+                <RefreshCw className={`size-4 ${syncing ? "animate-spin" : ""}`} />
+                {syncing ? "Sincronizando…" : "Sincronizar"}
               </Button>
             )}
           </div>

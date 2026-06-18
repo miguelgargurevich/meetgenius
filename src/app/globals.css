@@ -127,6 +127,27 @@ body {
   -webkit-app-region: no-drag;
 }
 
+@keyframes loading-bar {
+  0% {
+    left: -40%;
+    width: 40%;
+  }
+  50% {
+    width: 50%;
+  }
+  100% {
+    left: 100%;
+    width: 40%;
+  }
+}
+.animate-loading-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: var(--primary);
+  animation: loading-bar 1s ease-in-out infinite;
+}
+
 @keyframes pulse-recording {
   0%,
   100% {
