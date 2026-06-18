@@ -81,10 +81,29 @@ npm run dev          # http://localhost:3000
 npm run desktop      # arranca Next + abre la ventana de Electron
 ```
 
-### 6. Empaquetar app de escritorio (macOS)
+### 6. Empaquetar e instalar la app de escritorio (macOS, Apple Silicon)
+
 ```bash
-npm run build:desktop   # genera el .dmg en release/
+npm run build:desktop   # genera release/MeetGenius-0.1.0-arm64.dmg
 ```
+
+El build: compila Next en modo **standalone**, copia los estáticos + **schema y motor de Prisma** + tu `.env` al bundle (`scripts/prepare-standalone.mjs`), y empaqueta con electron-builder. El servidor Next se incrusta como `extraResources` y Electron lo arranca al abrir la app.
+
+**Instalar y abrir:**
+1. Abre `release/MeetGenius-0.1.0-arm64.dmg` y arrastra **MeetGenius** a Aplicaciones.
+2. La app **no está firmada con cuenta de desarrollador** (build local), así que Gatekeeper la bloqueará la primera vez: **clic derecho sobre la app → Abrir → Abrir**. (O Ajustes del Sistema → Privacidad y seguridad → "Abrir igualmente".)
+3. La app necesita **PostgreSQL en `localhost:5432`** corriendo (mismo de `docker compose up -d db`). El `.env` empaquetado ya apunta ahí e incluye tus claves de IA.
+
+**Permisos que pedirá macOS la primera vez** (acéptalos todos para el flujo completo):
+- 🎙 **Micrófono** — grabar tu voz
+- 🖥 **Grabación de pantalla** — capturar el audio del sistema (voces de los demás)
+- 📅 **Calendarios** — agenda del día
+- ⚙️ **Automatización** (Chrome/Safari…) — autodetectar llamadas Meet/Teams
+- 🔔 **Notificaciones** — recordatorios antes de reuniones
+
+> Tras conceder **Grabación de pantalla** y **Accesibilidad**, reinicia la app (requisito de macOS para esos dos permisos).
+>
+> ⚠️ El `.dmg` local incrusta tu `.env` con las claves de IA: es para tu uso personal, **no lo distribuyas**. Para distribución real: firmar + notarizar con cuenta de Apple Developer y externalizar las claves.
 
 ## Flujo principal
 

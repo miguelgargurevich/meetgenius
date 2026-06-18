@@ -10,7 +10,7 @@
     "desktop": "concurrently -k \"npm:dev\" \"npm:electron:dev\"",
     "electron:dev": "wait-on tcp:3000 && cross-env ELECTRON_DEV=1 electron .",
     "build": "next build",
-    "build:desktop": "cross-env ELECTRON_BUILD=1 next build && electron-builder",
+    "build:desktop": "next build && node scripts/prepare-standalone.mjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
     "start": "next start -p 3000",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -28,11 +28,14 @@
   "build": {
     "appId": "com.globalgo.meetgenius",
     "productName": "MeetGenius",
-    "files": ["electron/**", ".next/standalone/**", ".next/static/**", "public/**", "package.json"],
+    "asar": false,
+    "files": ["electron/**", "package.json"],
+    "extraResources": [{ "from": ".next/standalone", "to": "standalone" }],
     "directories": { "output": "release" },
     "mac": {
       "category": "public.app-category.productivity",
-      "target": ["dmg"],
+      "target": [{ "target": "dmg", "arch": "arm64" }],
+      "identity": null,
       "extendInfo": {
         "NSMicrophoneUsageDescription": "MeetGenius graba el audio de tus reuniones para transcribirlas y analizarlas.",
         "NSCalendarsUsageDescription": "MeetGenius lee tu calendario para mostrar la agenda del día y reconocer tus reuniones.",

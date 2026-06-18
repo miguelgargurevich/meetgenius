@@ -1,17 +1,23 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Permite empaquetar la app dentro de Electron sin servidor Node externo.
-  // En desarrollo usamos `next dev`; en producción desktop se sirve estático/standalone.
-  output: process.env.ELECTRON_BUILD === "1" ? "export" : "standalone",
+  // Servidor "standalone": Electron lo arranca internamente en producción
+  // (la app necesita las API Routes + Prisma, por lo que NO usamos export estático).
+  output: "standalone",
   images: { unoptimized: true },
   reactStrictMode: true,
   serverExternalPackages: ["@prisma/client", "prisma"],
   experimental: {
     serverActions: { bodySizeLimit: "50mb" },
   },
-  // Necesario para que Electron cargue assets con rutas relativas en build export.
-  assetPrefix: process.env.ELECTRON_BUILD === "1" ? "." : undefined,
+  // Garantiza que el motor de Prisma y el schema entren en el bundle standalone.
+  outputFileTracingIncludes: {
+    "/api/**/*": [
+      "./node_modules/.prisma/client/**",
+      "./node_modules/@prisma/client/**",
+      "./prisma/**",
+    ],
+  },
 };
 
 export default nextConfig;

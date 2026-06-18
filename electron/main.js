@@ -95,12 +95,47 @@ function createWindow() {
   });
 }
 
+// Carga un archivo .env (formato KEY=VALUE) e inyecta en process.env.
+function loadEnvFile(file) {
+  try {
+    const fs = require("fs");
+    if (!fs.existsSync(file)) return;
+    for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const i = trimmed.indexOf("=");
+      if (i < 0) continue;
+      const key = trimmed.slice(0, i).trim();
+      const val = trimmed.slice(i + 1).trim().replace(/^["']|["']$/g, "");
+      if (!(key in process.env)) process.env[key] = val;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 // En producción, arranca el servidor Next standalone antes de abrir la ventana.
 async function startProductionServer() {
   if (isDev) return;
-  const serverPath = path.join(__dirname, "..", ".next", "standalone", "server.js");
+  // Empaquetado: el standalone va como extraResources (Contents/Resources/standalone).
+  const standaloneDir = app.isPackaged
+    ? path.join(process.resourcesPath, "standalone")
+    : path.join(__dirname, "..", ".next", "standalone");
+  const serverPath = path.join(standaloneDir, "server.js");
+
+  // Configuración runtime: .env empaquetado + valores por defecto.
+  loadEnvFile(path.join(standaloneDir, ".env"));
+  loadEnvFile(path.join(__dirname, "..", ".env"));
+  if (!process.env.DATABASE_URL) {
+    process.env.DATABASE_URL =
+      "postgresql://meetgenius:meetgenius@localhost:5432/meetgenius?schema=public";
+  }
+  process.env.NODE_ENV = "production";
   process.env.PORT = String(PORT);
+  process.env.HOSTNAME = "127.0.0.1";
+
   try {
+    process.chdir(standaloneDir); // el server standalone resuelve rutas relativas a su dir
     require(serverPath);
     await waitForPort(PORT);
   } catch (err) {
