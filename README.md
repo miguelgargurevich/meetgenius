@@ -2,7 +2,7 @@
 
 > Asistente inteligente de reuniones impulsado por IA. Graba, transcribe, analiza y convierte tus reuniones en conocimiento accionable: resúmenes ejecutivos, tareas, acuerdos, riesgos y reportes.
 
-App de escritorio (Electron + macOS) construida sobre Next.js 15, con análisis IA vía **Grok (xAI)** y transcripción vía **Whisper**.
+App de escritorio (Electron + macOS) construida sobre Next.js 15, con análisis IA vía **Groq** y transcripción vía **Whisper** (Groq). Base de datos **SQLite embebida** (sin Docker).
 
 ---
 
@@ -16,9 +16,9 @@ App de escritorio (Electron + macOS) construida sobre Next.js 15, con análisis 
 | Gráficos        | Recharts                                              |
 | Desktop         | Electron                                              |
 | Backend         | Next API Routes + Service Layer (Clean Architecture)  |
-| DB / ORM        | PostgreSQL + Prisma                                   |
-| IA — análisis   | Grok (xAI) · capa abstraída (OpenAI / mock)           |
-| IA — transcripción | Whisper (OpenAI) · mock                            |
+| DB / ORM        | SQLite embebido + Prisma                              |
+| IA — análisis   | Groq (Llama) · capa abstraída (Gemini / Grok / OpenAI / mock) |
+| IA — transcripción | Whisper vía Groq (o OpenAI) · mock                 |
 | Reportes        | PDF (pdf-lib) · Excel (ExcelJS)                       |
 
 ## Arquitectura
@@ -44,8 +44,7 @@ Principios: Clean Architecture, separación de capas, Repository/Service pattern
 ## Puesta en marcha
 
 ### 1. Requisitos
-- Node.js 20+
-- Docker (para PostgreSQL) — o un PostgreSQL local
+- Node.js 20+ (no necesitas Docker ni base de datos externa: SQLite embebido)
 
 ### 2. Instalar dependencias
 ```bash
@@ -57,17 +56,17 @@ npm install
 cp .env.example .env
 ```
 Edita `.env`:
-- `XAI_API_KEY` → tu clave de xAI/Grok (para análisis real). Sin ella, la app usa un proveedor **mock** determinístico.
-- `OPENAI_API_KEY` → necesaria para transcripción Whisper real. Sin ella, transcripción **mock**.
+- `GROQ_API_KEY` → tu clave de Groq (análisis con Llama + transcripción Whisper). Sin ella, la app usa proveedores **mock**.
+- `GEMINI_API_KEY` → opcional, proveedor alternativo.
 
 > La app **funciona sin claves**: usa proveedores mock para que puedas probar el flujo completo end-to-end.
 
-### 4. Base de datos
+### 4. Base de datos (SQLite embebido — sin Docker)
 ```bash
-docker compose up -d db      # levanta PostgreSQL
-npm run db:push              # crea el esquema
+npm run db:push              # crea el archivo SQLite (prisma/dev.db) con el esquema
 npm run db:seed              # datos de demostración (opcional)
 ```
+La base de datos es un **único archivo SQLite** — no necesitas Docker ni servidor. En la app empaquetada, la DB vive en el directorio de datos del usuario y se inicializa sola en el primer arranque.
 
 ### 5. Ejecutar
 
@@ -81,18 +80,18 @@ npm run dev          # http://localhost:3000
 npm run desktop      # arranca Next + abre la ventana de Electron
 ```
 
-### 6. Empaquetar e instalar la app de escritorio (macOS, Apple Silicon)
+### 6. Empaquetar e instalar la app de escritorio (macOS)
 
 ```bash
-npm run build:desktop   # genera release/MeetGenius-0.1.0-arm64.dmg
+npm run build:desktop   # genera los .dmg en release/ (arm64 + Intel x64)
 ```
 
 El build: compila Next en modo **standalone**, copia los estáticos + **schema y motor de Prisma** + tu `.env` al bundle (`scripts/prepare-standalone.mjs`), y empaqueta con electron-builder. El servidor Next se incrusta como `extraResources` y Electron lo arranca al abrir la app.
 
 **Instalar y abrir:**
-1. Abre `release/MeetGenius-0.1.0-arm64.dmg` y arrastra **MeetGenius** a Aplicaciones.
+1. Abre el `.dmg` de tu arquitectura (`-arm64` para Apple Silicon, `-x64` para Intel) y arrastra **MeetGenius** a Aplicaciones.
 2. La app **no está firmada con cuenta de desarrollador** (build local), así que Gatekeeper la bloqueará la primera vez: **clic derecho sobre la app → Abrir → Abrir**. (O Ajustes del Sistema → Privacidad y seguridad → "Abrir igualmente".)
-3. La app necesita **PostgreSQL en `localhost:5432`** corriendo (mismo de `docker compose up -d db`). El `.env` empaquetado ya apunta ahí e incluye tus claves de IA.
+3. **No necesita nada externo**: la base de datos SQLite viaja dentro de la app y se crea sola en el primer arranque (en el directorio de datos del usuario). El `.env` empaquetado incluye tus claves de IA.
 
 **Permisos que pedirá macOS la primera vez** (acéptalos todos para el flujo completo):
 - 🎙 **Micrófono** — grabar tu voz

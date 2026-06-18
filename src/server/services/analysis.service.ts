@@ -27,7 +27,7 @@ export async function runAnalysisPipeline(meetingId: string): Promise<void> {
     // ── 2. Análisis IA ────────────────────────────────────────
     const analysis = await analyze(meetingId, transcript, {
       title: meeting.title,
-      participants: meeting.participants,
+      participants: (meeting.participants as string[] | null) ?? [],
     });
 
     // ── 3. Persistencia de resultados ─────────────────────────

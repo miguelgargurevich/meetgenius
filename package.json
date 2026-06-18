@@ -10,7 +10,8 @@
     "desktop": "concurrently -k \"npm:dev\" \"npm:electron:dev\"",
     "electron:dev": "wait-on tcp:3000 && cross-env ELECTRON_DEV=1 electron .",
     "build": "next build",
-    "build:desktop": "next build && node scripts/prepare-standalone.mjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
+    "db:template": "node -e \"require('fs').rmSync('prisma/template.db',{force:true})\" && cross-env DATABASE_URL=file:./template.db prisma db push --skip-generate && cross-env DATABASE_URL=file:./template.db tsx prisma/seed.ts",
+    "build:desktop": "next build && npm run db:template && node scripts/prepare-standalone.mjs && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder",
     "start": "next start -p 3000",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -34,7 +35,7 @@
     "directories": { "output": "release" },
     "mac": {
       "category": "public.app-category.productivity",
-      "target": [{ "target": "dmg", "arch": "arm64" }],
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
       "identity": null,
       "extendInfo": {
         "NSMicrophoneUsageDescription": "MeetGenius graba el audio de tus reuniones para transcribirlas y analizarlas.",

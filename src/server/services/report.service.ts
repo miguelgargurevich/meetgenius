@@ -69,13 +69,18 @@ export async function buildMeetingPdf(meetingId: string): Promise<Uint8Array> {
     x: margin, y: 814, size: 16, font: bold, color: rgb(1, 1, 1),
   });
 
+  const participants = (m.participants as string[] | null) ?? [];
+  const summaryBullets = (m.summary?.bullets as string[] | null) ?? [];
+
   text(m.title, 20, { f: bold });
-  const meta = `${m.createdAt.toLocaleDateString("es")} · Duración ${Math.round(m.durationSec / 60)} min · ${m.participants.length} participantes`;
+  const meta = `${m.createdAt.toLocaleDateString("es")} · Duración ${Math.round(m.durationSec / 60)} min · ${participants.length} participantes`;
   text(meta, 10, { color: MUTED });
   if (m.sentiment) text(`Sentimiento general: ${m.sentiment}`, 10, { color: MUTED });
 
   heading("Resumen Ejecutivo");
-  (m.summary?.bullets ?? ["(sin resumen)"]).forEach((b) => text(`•  ${b}`, 11, { indent: 6 }));
+  (summaryBullets.length ? summaryBullets : ["(sin resumen)"]).forEach((b) =>
+    text(`•  ${b}`, 11, { indent: 6 }),
+  );
 
   heading("Acuerdos");
   if (!m.agreements.length) text("(ninguno)", 11, { color: MUTED });

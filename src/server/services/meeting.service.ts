@@ -19,8 +19,8 @@ export const meetingService = {
       ...(filters?.q
         ? {
             OR: [
-              { title: { contains: filters.q, mode: "insensitive" } },
-              { description: { contains: filters.q, mode: "insensitive" } },
+              { title: { contains: filters.q } },
+              { description: { contains: filters.q } },
             ],
           }
         : {}),

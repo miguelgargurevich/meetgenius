@@ -123,13 +123,23 @@ async function startProductionServer() {
     : path.join(__dirname, "..", ".next", "standalone");
   const serverPath = path.join(standaloneDir, "server.js");
 
-  // Configuración runtime: .env empaquetado + valores por defecto.
+  // Configuración runtime: .env empaquetado (claves de IA) + DB embebida.
   loadEnvFile(path.join(standaloneDir, ".env"));
   loadEnvFile(path.join(__dirname, "..", ".env"));
-  if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL =
-      "postgresql://meetgenius:meetgenius@localhost:5432/meetgenius?schema=public";
+
+  // Base de datos SQLite en el directorio de datos del usuario (escribible).
+  // En el primer arranque copiamos el template empaquetado (schema + datos demo).
+  const fs = require("fs");
+  const dbPath = path.join(app.getPath("userData"), "meetgenius.db");
+  if (!fs.existsSync(dbPath)) {
+    const template = path.join(standaloneDir, "prisma", "template.db");
+    try {
+      if (fs.existsSync(template)) fs.copyFileSync(template, dbPath);
+    } catch (err) {
+      console.error("No se pudo inicializar la base de datos:", err);
+    }
   }
+  process.env.DATABASE_URL = `file:${dbPath}`;
   process.env.NODE_ENV = "production";
   process.env.PORT = String(PORT);
   process.env.HOSTNAME = "127.0.0.1";

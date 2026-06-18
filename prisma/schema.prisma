@@ -1,15 +1,21 @@
 // ───────────────────────────────────────────────────────────────
-// MeetGenius — Prisma Schema
-// Diseñado para evolucionar a SaaS multiempresa.
-// Preparado para RAG: ver modelo `Embedding` (migrable a pgvector).
+// MeetGenius — Prisma Schema (SQLite embebido)
+// La base de datos viaja dentro de la app de escritorio (un archivo),
+// sin servidor ni Docker. Preparado para RAG: ver modelo `Embedding`.
+//
+// Nota: SQLite no soporta enums nativos ni listas escalares (String[]).
+// Los "enums" se modelan como String (los valores válidos se documentan
+// junto a cada campo) y las listas como Json.
 // ───────────────────────────────────────────────────────────────
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // Motores para empaquetar la app en Apple Silicon e Intel.
+  binaryTargets = ["native", "darwin", "darwin-arm64"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -27,25 +33,19 @@ model Organization {
   auditLogs AuditLog[]
 }
 
-enum UserRole {
-  OWNER
-  ADMIN
-  MEMBER
-}
-
 model User {
   id             String       @id @default(cuid())
   email          String       @unique
   name           String
-  role           UserRole     @default(MEMBER)
+  role           String       @default("MEMBER") // OWNER | ADMIN | MEMBER
   avatarUrl      String?
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  meetings  Meeting[]   @relation("MeetingOwner")
-  tasks     Task[]      @relation("TaskAssignee")
+  meetings  Meeting[]  @relation("MeetingOwner")
+  tasks     Task[]     @relation("TaskAssignee")
   auditLogs AuditLog[]
 
   @@index([organizationId])
@@ -53,32 +53,18 @@ model User {
 
 // ── Reuniones ──────────────────────────────────────────────────
 
-enum MeetingStatus {
-  DRAFT // creada, sin grabar
-  RECORDING // grabando
-  PAUSED // grabación pausada
-  PROCESSING // transcribiendo / analizando
-  COMPLETED // análisis listo
-  FAILED // error en pipeline
-}
-
-enum Sentiment {
-  POSITIVE
-  NEUTRAL
-  NEGATIVE
-}
-
 model Meeting {
-  id             String        @id @default(cuid())
-  title          String
-  description    String?
-  status         MeetingStatus @default(DRAFT)
-  scheduledAt    DateTime?
-  startedAt      DateTime?
-  endedAt        DateTime?
-  durationSec    Int           @default(0)
-  participants   String[]      @default([])
-  sentiment      Sentiment?
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  // DRAFT | RECORDING | PAUSED | PROCESSING | COMPLETED | FAILED
+  status      String  @default("DRAFT")
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  endedAt     DateTime?
+  durationSec Int       @default(0)
+  participants Json     @default("[]") // string[] serializado
+  sentiment   String? // POSITIVE | NEUTRAL | NEGATIVE
 
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
@@ -115,26 +101,19 @@ model Recording {
   createdAt   DateTime @default(now())
 }
 
-enum JobStatus {
-  PENDING
-  RUNNING
-  SUCCEEDED
-  FAILED
-}
-
 model Transcription {
-  id          String    @id @default(cuid())
-  meeting     Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  meetingId   String    @unique
-  text        String    @db.Text
-  language    String    @default("es")
-  provider    String    @default("openai-whisper")
-  status      JobStatus @default(PENDING)
-  error       String?
-  runtimeMs   Int       @default(0)
-  segments    Json? // [{ start, end, speaker?, text }]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  meetingId String   @unique
+  text      String
+  language  String   @default("es")
+  provider  String   @default("groq-whisper")
+  status    String   @default("PENDING") // PENDING | RUNNING | SUCCEEDED | FAILED
+  error     String?
+  runtimeMs Int      @default(0)
+  segments  Json? // [{ start, end, speaker?, text }]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ── Análisis IA ────────────────────────────────────────────────
@@ -143,85 +122,52 @@ model Summary {
   id        String   @id @default(cuid())
   meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   meetingId String   @unique
-  bullets   String[] @default([]) // máximo 10 puntos ejecutivos
+  bullets   Json     @default("[]") // string[] serializado (máx 10)
   createdAt DateTime @default(now())
 }
 
-enum Priority {
-  LOW
-  MEDIUM
-  HIGH
-  CRITICAL
-}
-
-enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  DONE
-  BLOCKED
-}
-
 model Task {
-  id          String     @id @default(cuid())
-  meeting     Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  meeting     Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   meetingId   String
   title       String
   description String?
-  assignee    User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assignee    User?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
   assigneeId  String?
-  assigneeRaw String? // nombre textual extraído por IA si no mapea a un User
-  priority    Priority   @default(MEDIUM)
-  status      TaskStatus @default(TODO)
+  assigneeRaw String?
+  priority    String    @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  status      String    @default("TODO") // TODO | IN_PROGRESS | DONE | BLOCKED
   dueDate     DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([meetingId])
   @@index([status])
 }
 
-enum AgreementStatus {
-  PROPOSED
-  CONFIRMED
-  AT_RISK
-  DONE
-}
-
 model Agreement {
-  id          String          @id @default(cuid())
-  meeting     Meeting         @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  id          String    @id @default(cuid())
+  meeting     Meeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   meetingId   String
   title       String
   description String?
-  owner       String? // responsable textual
+  owner       String?
   targetDate  DateTime?
-  status      AgreementStatus @default(PROPOSED)
-  createdAt   DateTime        @default(now())
+  status      String    @default("PROPOSED") // PROPOSED | CONFIRMED | AT_RISK | DONE
+  createdAt   DateTime  @default(now())
 
   @@index([meetingId])
 }
 
-enum RiskImpact {
-  LOW
-  MEDIUM
-  HIGH
-}
-
-enum RiskStatus {
-  OPEN
-  MITIGATED
-  CLOSED
-}
-
 model Risk {
-  id         String     @id @default(cuid())
-  meeting    Meeting    @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  meeting    Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   meetingId  String
   risk       String
-  impact     RiskImpact @default(MEDIUM)
+  impact     String   @default("MEDIUM") // LOW | MEDIUM | HIGH
   mitigation String?
-  status     RiskStatus @default(OPEN)
-  createdAt  DateTime   @default(now())
+  status     String   @default("OPEN") // OPEN | MITIGATED | CLOSED
+  createdAt  DateTime @default(now())
 
   @@index([meetingId])
 }
@@ -249,59 +195,45 @@ model NextStep {
 
 // ── Reportes ───────────────────────────────────────────────────
 
-enum ReportFormat {
-  PDF
-  EXCEL
-}
-
 model Report {
-  id        String       @id @default(cuid())
-  meeting   Meeting      @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   meetingId String
-  format    ReportFormat
+  format    String // PDF | EXCEL
   filePath  String
-  createdAt DateTime     @default(now())
+  createdAt DateTime @default(now())
 
   @@index([meetingId])
 }
 
 // ── Infra IA: jobs y embeddings (RAG-ready) ────────────────────
 
-enum AIJobType {
-  TRANSCRIPTION
-  ANALYSIS
-  EMBEDDING
-  CHAT
-}
-
 model AIJob {
-  id         String    @id @default(cuid())
-  meeting    Meeting?  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  meeting    Meeting? @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   meetingId  String?
-  type       AIJobType
+  type       String // TRANSCRIPTION | ANALYSIS | EMBEDDING | CHAT
   provider   String
   model      String?
-  status     JobStatus @default(PENDING)
+  status     String   @default("PENDING") // PENDING | RUNNING | SUCCEEDED | FAILED
   inputMeta  Json?
   outputMeta Json?
   error      String?
-  runtimeMs  Int       @default(0)
-  tokensIn   Int       @default(0)
-  tokensOut  Int       @default(0)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  runtimeMs  Int      @default(0)
+  tokensIn   Int      @default(0)
+  tokensOut  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([type, status])
 }
 
-// Embeddings para RAG. Hoy guardamos el vector como Json (Float[] serializado).
-// Migración futura a pgvector: cambiar `vector Json?` por
-//   vector Unsupported("vector(1536)")?  + extensión pgvector.
+// Embeddings para RAG. El vector se guarda como Json (Float[] serializado).
 model Embedding {
   id        String   @id @default(cuid())
   meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   meetingId String
-  chunk     String   @db.Text
+  chunk     String
   vector    Json?
   metadata  Json?
   createdAt DateTime @default(now())

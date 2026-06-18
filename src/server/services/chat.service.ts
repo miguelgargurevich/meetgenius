@@ -44,8 +44,8 @@ async function retrieveContext(organizationId: string, question: string) {
       organizationId,
       status: "COMPLETED",
       OR: [
-        { title: { contains: question, mode: "insensitive" } },
-        ...terms.map((t) => ({ transcription: { text: { contains: t, mode: "insensitive" as const } } })),
+        { title: { contains: question } },
+        ...terms.map((t) => ({ transcription: { is: { text: { contains: t } } } })),
       ],
     },
     include: { summary: true, agreements: true, tasks: true, risks: true },
@@ -57,7 +57,8 @@ async function retrieveContext(organizationId: string, question: string) {
   const context = meetings
     .map((m) => {
       const parts = [`### Reunión: ${m.title} (${m.createdAt.toISOString().slice(0, 10)})`];
-      if (m.summary?.bullets.length) parts.push(`Resumen:\n- ${m.summary.bullets.join("\n- ")}`);
+      const bullets = (m.summary?.bullets as string[] | null) ?? [];
+      if (bullets.length) parts.push(`Resumen:\n- ${bullets.join("\n- ")}`);
       if (m.agreements.length)
         parts.push(`Acuerdos:\n- ${m.agreements.map((a) => a.title).join("\n- ")}`);
       if (m.tasks.length)
