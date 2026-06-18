@@ -55,6 +55,10 @@ export default function CalendarPage() {
 
   const { items, isLoading, macosError } = useCalendar(rangeStart, rangeEnd);
 
+  React.useEffect(() => {
+    console.log("[MeetGenius] CalendarPage montada · items:", items.length, "· macosError:", macosError);
+  }, [items.length, macosError]);
+
   const navigate = (dir: -1 | 1) =>
     setCursor((c) => (view === "month" ? addMonths(c, dir) : addWeeks(c, dir)));
 

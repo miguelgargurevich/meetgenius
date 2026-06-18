@@ -9,26 +9,41 @@
 
 const { spawn } = require("node:child_process");
 
-function runJXA(script) {
+function runJXA(script, timeoutMs = 15000) {
   return new Promise((resolve) => {
     if (process.platform !== "darwin") return resolve({ error: "unsupported" });
     const child = spawn("osascript", ["-l", "JavaScript"]);
     let stdout = "";
     let stderr = "";
+    let settled = false;
+    const done = (v) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(v);
+    };
+    // Evita que la UI se congele si el diálogo de Automatización no se responde.
+    const timer = setTimeout(() => {
+      try {
+        child.kill("SIGKILL");
+      } catch {}
+      console.log("[calendar] JXA timeout (¿permiso de Automatización sin conceder?)");
+      done({ error: "timeout" });
+    }, timeoutMs);
     child.stdout.on("data", (d) => (stdout += d));
     child.stderr.on("data", (d) => (stderr += d));
-    child.on("error", () => resolve({ error: "spawn" }));
+    child.on("error", () => done({ error: "spawn" }));
     child.on("close", () => {
       const out = stdout.trim();
       if (!out) {
         const msg = stderr.trim().split("\n").slice(-1)[0] || "sin salida";
-        console.log(`[calendar] JXA error: ${msg}`);
-        return resolve({ error: "jxa", stderr: msg });
+        if (!settled) console.log(`[calendar] JXA error: ${msg}`);
+        return done({ error: "jxa", stderr: msg });
       }
       try {
-        resolve(JSON.parse(out));
+        done(JSON.parse(out));
       } catch {
-        resolve({ error: "parse", stderr: stderr.trim().slice(0, 300) });
+        done({ error: "parse", stderr: stderr.trim().slice(0, 300) });
       }
     });
     child.stdin.write(script + "\n");

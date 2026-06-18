@@ -20,7 +20,6 @@ export function useTodayAgenda() {
 export function useCalendarRange(startISO: string, endISO: string) {
   return useQuery({
     queryKey: ["calendar-range", startISO, endISO],
-    enabled: isDesktopApp(),
     queryFn: async () => {
       const bridge = desktop();
       const res = (await bridge?.getCalendarRange?.(startISO, endISO)) as
