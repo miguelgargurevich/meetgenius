@@ -5,11 +5,14 @@ import { analysisSchema, type AnalysisResult } from "../schema";
 import {
   ANALYSIS_SYSTEM_PROMPT,
   buildAnalysisPrompt,
+  DIARIZE_SYSTEM_PROMPT,
+  buildDiarizePrompt,
 } from "../prompts";
 import type {
   AnalyzeContext,
   ChatMessage,
   CompletionResult,
+  DiarizeInput,
   LanguageProvider,
 } from "../types";
 
@@ -74,6 +77,42 @@ export class OpenAICompatibleProvider implements LanguageProvider {
       throw err instanceof AIProviderError
         ? err
         : new AIProviderError(`Error de análisis (${this.name})`, err);
+    }
+  }
+
+  async diarize(segments: DiarizeInput[], ctx?: AnalyzeContext): Promise<string[]> {
+    if (!segments.length) return [];
+    try {
+      const res = await this.client.chat.completions.create({
+        model: this.model,
+        temperature: 0,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: DIARIZE_SYSTEM_PROMPT },
+          { role: "user", content: buildDiarizePrompt(segments, ctx?.participants) },
+        ],
+      });
+      const parsed = parseJsonObject(res.choices[0]?.message?.content ?? "") as {
+        speakers?: unknown;
+      };
+      const raw = Array.isArray(parsed.speakers) ? parsed.speakers : [];
+      // Normalizamos a la longitud exacta: rellenamos huecos arrastrando el
+      // último hablante conocido (un turno suele continuar).
+      const out: string[] = [];
+      let last = "Hablante 1";
+      for (let i = 0; i < segments.length; i++) {
+        const v = raw[i];
+        const label = typeof v === "string" && v.trim() ? v.trim() : last;
+        out.push(label);
+        last = label;
+      }
+      log.info("diarización completada", { provider: this.name, segments: segments.length });
+      return out;
+    } catch (err) {
+      log.error("fallo de diarización", { provider: this.name, err: String(err) });
+      throw err instanceof AIProviderError
+        ? err
+        : new AIProviderError(`Error de diarización (${this.name})`, err);
     }
   }
 

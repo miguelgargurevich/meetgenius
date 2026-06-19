@@ -26,6 +26,7 @@ export const meetingRepository = {
         recording: true,
         transcription: true,
         summary: true,
+        insight: true,
         tasks: { orderBy: { createdAt: "asc" } },
         agreements: true,
         risks: true,

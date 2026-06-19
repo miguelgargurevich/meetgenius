@@ -19,6 +19,13 @@ export interface CalendarItem {
   /** estado de la reunión de la app. */
   status?: string;
   attendees?: string[];
+  /** Datos extra de eventos externos (ICS), para el panel de detalle. */
+  location?: string;
+  notes?: string;
+  url?: string;
+  calendar?: string;
+  /** id del evento externo (para deduplicar al crear reunión). */
+  externalId?: string;
 }
 
 const DEFAULT_MIN = 30;
@@ -78,6 +85,11 @@ export function useCalendar(rangeStart: Date, rangeEnd: Date) {
         platform: e.platform,
         joinUrl: e.joinUrl,
         attendees: e.attendees,
+        location: e.location,
+        notes: e.notes,
+        url: e.url,
+        calendar: e.calendar,
+        externalId: e.id,
       }));
 
     return [...appItems, ...macItems].sort((a, b) => a.start.getTime() - b.start.getTime());

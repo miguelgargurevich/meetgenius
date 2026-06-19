@@ -93,6 +93,7 @@ model Meeting {
   recording     Recording?
   transcription Transcription?
   summary       Summary?
+  insight       Insight?
   tasks         Task[]
   agreements    Agreement[]
   risks         Risk[]
@@ -136,6 +137,21 @@ model Transcription {
 }
 
 // ── Análisis IA ────────────────────────────────────────────────
+
+// Insights enriquecidos de la reunión: capítulos/temas, momentos clave
+// (highlights) y borrador de email de seguimiento. Se guardan como Json
+// porque son de solo lectura (no se mutan fila a fila como tareas/riesgos).
+model Insight {
+  id              String   @id @default(cuid())
+  meeting         Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  meetingId       String   @unique
+  chapters        Json     @default("[]") // [{ title, summary, startSec }]
+  highlights      Json     @default("[]") // [{ quote, speaker, atSec }]
+  followUpSubject String?
+  followUpBody    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
 
 model Summary {
   id        String   @id @default(cuid())

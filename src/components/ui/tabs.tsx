@@ -7,14 +7,26 @@ const TabsCtx = React.createContext<{ value: string; setValue: (v: string) => vo
 
 export function Tabs({
   defaultValue,
+  value: controlled,
+  onValueChange,
   children,
   className,
 }: {
   defaultValue: string;
+  value?: string;
+  onValueChange?: (v: string) => void;
   children: React.ReactNode;
   className?: string;
 }) {
-  const [value, setValue] = React.useState(defaultValue);
+  const [uncontrolled, setUncontrolled] = React.useState(defaultValue);
+  const value = controlled ?? uncontrolled;
+  const setValue = React.useCallback(
+    (v: string) => {
+      setUncontrolled(v);
+      onValueChange?.(v);
+    },
+    [onValueChange],
+  );
   return (
     <TabsCtx.Provider value={{ value, setValue }}>
       <div className={className}>{children}</div>

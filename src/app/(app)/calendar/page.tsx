@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MonthView } from "@/components/calendar/month-view";
 import { WeekView } from "@/components/calendar/week-view";
 import { CalendarSourcesDialog } from "@/components/calendar/calendar-sources-dialog";
+import { EventDetailsDialog } from "@/components/calendar/event-details-dialog";
 import { CreateMeetingDialog } from "@/components/meetings/create-meeting-dialog";
 import { useCalendar, useSyncCalendar, type CalendarItem } from "@/hooks/use-calendar";
 import { useSources } from "@/hooks/use-calendar-sources";
@@ -41,6 +42,8 @@ export default function CalendarPage() {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [sourcesOpen, setSourcesOpen] = React.useState(false);
   const [defaultDate, setDefaultDate] = React.useState<string | undefined>();
+  const [selectedEvent, setSelectedEvent] = React.useState<CalendarItem | null>(null);
+  const [busy, setBusy] = React.useState(false);
 
   const { rangeStart, rangeEnd } = React.useMemo(() => {
     if (view === "month") {
@@ -66,26 +69,38 @@ export default function CalendarPage() {
     setDialogOpen(true);
   };
 
-  const onItemClick = async (it: CalendarItem) => {
+  const onItemClick = (it: CalendarItem) => {
+    // Reunión de la app → abre su detalle. Evento externo → panel de detalle.
     if (it.source === "app" && it.meetingId) {
       router.push(`/meetings/${it.meetingId}`);
       return;
     }
-    // Evento del calendario externo: si es videollamada, ofrecemos grabarla.
-    if (it.joinUrl || it.platform) {
-      try {
-        const meeting = await api.post<{ id: string }>("/api/meetings", {
-          title: it.title,
-          participants: (it.attendees ?? []).slice(0, 25),
-          scheduledAt: it.start.toISOString(),
-          meetingUrl: it.joinUrl || "",
-        });
-        router.push(`/meetings/${meeting.id}?record=1`);
-      } catch (e) {
-        toast.error((e as Error).message);
-      }
-    } else {
-      toast.info("Evento del calendario sin enlace de videollamada.");
+    setSelectedEvent(it);
+  };
+
+  // Crea una reunión a partir de un evento del calendario; opcionalmente la graba.
+  const useEvent = async (it: CalendarItem, { record }: { record: boolean }) => {
+    setBusy(true);
+    try {
+      const minutes = Math.max(
+        15,
+        Math.round((it.end.getTime() - it.start.getTime()) / 60_000),
+      );
+      const meeting = await api.post<{ id: string }>("/api/meetings", {
+        title: it.title,
+        description: it.notes?.slice(0, 2000) || undefined,
+        participants: (it.attendees ?? []).slice(0, 25),
+        scheduledAt: it.start.toISOString(),
+        durationMinutes: minutes,
+        meetingUrl: it.joinUrl || "",
+        externalEventId: it.externalId ?? null,
+      });
+      setSelectedEvent(null);
+      router.push(`/meetings/${meeting.id}${record ? "?record=1" : ""}`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -184,6 +199,13 @@ export default function CalendarPage() {
 
       <CreateMeetingDialog open={dialogOpen} onClose={() => setDialogOpen(false)} defaultDate={defaultDate} />
       <CalendarSourcesDialog open={sourcesOpen} onClose={() => setSourcesOpen(false)} />
+      <EventDetailsDialog
+        open={Boolean(selectedEvent)}
+        onClose={() => setSelectedEvent(null)}
+        event={selectedEvent}
+        onUse={useEvent}
+        busy={busy}
+      />
     </div>
   );
 }

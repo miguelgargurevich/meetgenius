@@ -41,6 +41,26 @@ function extractJoin(...fields: string[]): string | null {
   return null;
 }
 
+/** Asistentes del VEVENT: usa el CN (nombre) o, si no, el email sin "mailto:". */
+function extractAttendees(component: any): string[] {
+  try {
+    const props = component?.getAllProperties?.("attendee") ?? [];
+    const out: string[] = [];
+    for (const p of props) {
+      const cn = p.getParameter?.("cn");
+      let label = typeof cn === "string" ? cn.trim() : "";
+      if (!label) {
+        const v = p.getFirstValue?.();
+        label = typeof v === "string" ? v.replace(/^mailto:/i, "").trim() : "";
+      }
+      if (label && !out.includes(label)) out.push(label);
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 // ── Caché en memoria del texto ICS (TTL corto) ─────────────────
 const cache = new Map<string, { ts: number; text: string }>();
 const TTL_MS = 60_000;
@@ -91,7 +111,7 @@ function mapItem(item: any, start: any, end: any, sourceName: string): CalendarE
     location,
     url: evUrl,
     notes,
-    attendees: [],
+    attendees: extractAttendees(item.component),
     calendar: sourceName,
     joinUrl,
     platform: platformOf(joinUrl),

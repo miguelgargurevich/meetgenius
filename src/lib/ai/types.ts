@@ -12,6 +12,13 @@ export interface CompletionResult {
   tokensOut: number;
 }
 
+/** Segmento de entrada para diarización (sin hablante todavía). */
+export interface DiarizeInput {
+  start: number;
+  end: number;
+  text: string;
+}
+
 /** Proveedor de lenguaje (análisis + chat). Implementado por Grok / OpenAI / mock. */
 export interface LanguageProvider {
   readonly name: string;
@@ -20,6 +27,11 @@ export interface LanguageProvider {
   analyze(transcript: string, context?: AnalyzeContext): Promise<AnalysisResult>;
   /** Conversación libre (Ask MeetGenius / RAG). */
   chat(messages: ChatMessage[]): Promise<CompletionResult>;
+  /**
+   * Diarización aproximada: asigna un hablante a cada segmento a partir del
+   * flujo conversacional. Devuelve una etiqueta por segmento (mismo orden).
+   */
+  diarize(segments: DiarizeInput[], context?: AnalyzeContext): Promise<string[]>;
 }
 
 export interface AnalyzeContext {

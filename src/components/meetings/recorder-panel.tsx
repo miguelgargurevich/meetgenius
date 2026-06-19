@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Mic, Pause, Play, Square, Volume2, AlertCircle } from "lucide-react";
+import { Mic, Pause, Play, Square, Volume2, AlertCircle, Radio } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,22 @@ import { isDesktop, screenAccessStatus } from "@/lib/audio-capture";
  */
 export function RecorderPanel({ meetingId, autoStart }: { meetingId: string; autoStart?: boolean }) {
   const qc = useQueryClient();
-  const { state, seconds, error, mode, start, pause, resume, stop } = useRecorder();
+  const [liveEnabled, setLiveEnabled] = React.useState(true);
+  const { state, seconds, error, mode, liveTranscript, start, pause, resume, stop } = useRecorder({
+    meetingId,
+    live: liveEnabled,
+  });
   const [uploading, setUploading] = React.useState(false);
   const [screenAccess, setScreenAccess] = React.useState<string | null>(null);
   const started = React.useRef(false);
   const desktop = isDesktop();
+  const active = state === "recording" || state === "paused";
+  const liveBoxRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll del panel en vivo al texto más reciente.
+  React.useEffect(() => {
+    if (liveBoxRef.current) liveBoxRef.current.scrollTop = liveBoxRef.current.scrollHeight;
+  }, [liveTranscript]);
 
   React.useEffect(() => {
     if (desktop) screenAccessStatus().then(setScreenAccess);
@@ -113,6 +124,20 @@ export function RecorderPanel({ meetingId, autoStart }: { meetingId: string; aut
 
         <div className="flex items-center gap-2">
           {error && <span className="text-xs text-[var(--danger)]">{error}</span>}
+          {state === "idle" && !uploading && (
+            <button
+              type="button"
+              onClick={() => setLiveEnabled((v) => !v)}
+              title="Mostrar la transcripción mientras grabas"
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                liveEnabled
+                  ? "border-[var(--brand-400)] bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] text-[var(--brand-400)]"
+                  : "border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              }`}
+            >
+              <Radio className="size-3.5" /> En vivo · {liveEnabled ? "activado" : "desactivado"}
+            </button>
+          )}
           {(state === "idle" || state === "stopped") && !uploading && (
             <Button onClick={begin} disabled={state === "stopped"}>
               <Mic className="size-4" /> Iniciar
@@ -135,6 +160,28 @@ export function RecorderPanel({ meetingId, autoStart }: { meetingId: string; aut
           )}
         </div>
         </div>
+
+        {active && liveEnabled && (
+          <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--background)] p-4">
+            <div className="flex items-center gap-2 text-xs font-medium text-[var(--brand-400)]">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--brand-400)] opacity-60" />
+                <span className="relative inline-flex size-2 rounded-full bg-[var(--brand-400)]" />
+              </span>
+              Transcripción en vivo
+            </div>
+            <div
+              ref={liveBoxRef}
+              className="max-h-40 overflow-y-auto text-sm leading-relaxed text-[var(--muted-foreground)]"
+            >
+              {liveTranscript || (
+                <span className="italic">
+                  {state === "paused" ? "En pausa…" : "Escuchando… el texto aparecerá en unos segundos."}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

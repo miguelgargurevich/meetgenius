@@ -28,6 +28,13 @@ import {
   RisksView,
   ListView,
 } from "@/components/meetings/analysis-views";
+import { TranscriptView } from "@/components/meetings/transcript-view";
+import { ParticipationView } from "@/components/meetings/participation-view";
+import {
+  ChaptersView,
+  HighlightsView,
+  FollowUpEmailView,
+} from "@/components/meetings/insights-views";
 import { useMeeting } from "@/hooks/use-meetings";
 import { MEETING_STATUS, SENTIMENT } from "@/lib/domain";
 import { api } from "@/lib/api-client";
@@ -49,6 +56,12 @@ function MeetingDetailInner() {
   const { data: m, isLoading } = useMeeting(id);
   const [reanalyzing, setReanalyzing] = React.useState(false);
   const [editOpen, setEditOpen] = React.useState(false);
+  const [tab, setTab] = React.useState("summary");
+  const [seek, setSeek] = React.useState<{ sec: number; nonce: number } | null>(null);
+  const goTo = React.useCallback((sec: number) => {
+    setSeek((prev) => ({ sec, nonce: (prev?.nonce ?? 0) + 1 }));
+    setTab("transcript");
+  }, []);
 
   const reanalyze = async () => {
     setReanalyzing(true);
@@ -76,6 +89,12 @@ function MeetingDetailInner() {
 
   const showRecorder = m.status === "DRAFT" || m.status === "RECORDING" || m.status === "PAUSED";
   const processing = m.status === "PROCESSING";
+  const segments = m.transcription?.segments;
+  const hasSpeakers =
+    Array.isArray(segments) && segments.some((s: any) => (s?.speaker ?? "").trim());
+  const chapters = m.insight?.chapters as any[] | undefined;
+  const highlights = m.insight?.highlights as any[] | undefined;
+  const hasEmail = Boolean(m.insight?.followUpSubject || m.insight?.followUpBody);
 
   return (
     <div>
@@ -158,14 +177,18 @@ function MeetingDetailInner() {
         )}
 
         {m.status === "COMPLETED" && (
-          <Tabs defaultValue="summary">
+          <Tabs defaultValue="summary" value={tab} onValueChange={setTab}>
             <TabsList>
               <TabsTrigger value="summary">Resumen</TabsTrigger>
               <TabsTrigger value="tasks">Tareas ({m.tasks.length})</TabsTrigger>
               <TabsTrigger value="agreements">Acuerdos ({m.agreements.length})</TabsTrigger>
               <TabsTrigger value="risks">Riesgos ({m.risks.length})</TabsTrigger>
               <TabsTrigger value="next">Próximos pasos</TabsTrigger>
+              {chapters?.length ? <TabsTrigger value="chapters">Capítulos</TabsTrigger> : null}
+              {highlights?.length ? <TabsTrigger value="highlights">Momentos</TabsTrigger> : null}
+              {hasSpeakers && <TabsTrigger value="participation">Participación</TabsTrigger>}
               <TabsTrigger value="transcript">Transcripción</TabsTrigger>
+              {hasEmail && <TabsTrigger value="email">Email</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="summary">
@@ -202,15 +225,38 @@ function MeetingDetailInner() {
                 </div>
               </div>
             </TabsContent>
+            {chapters?.length ? (
+              <TabsContent value="chapters">
+                <ChaptersView chapters={chapters} onSeek={goTo} />
+              </TabsContent>
+            ) : null}
+            {highlights?.length ? (
+              <TabsContent value="highlights">
+                <HighlightsView highlights={highlights} onSeek={goTo} />
+              </TabsContent>
+            ) : null}
+            {hasSpeakers && (
+              <TabsContent value="participation">
+                <ParticipationView segments={segments} />
+              </TabsContent>
+            )}
             <TabsContent value="transcript">
-              <Card>
-                <CardContent className="p-6">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--muted-foreground)]">
-                    {m.transcription?.text ?? "Sin transcripción disponible."}
-                  </p>
-                </CardContent>
-              </Card>
+              <TranscriptView
+                meetingId={id}
+                segments={m.transcription?.segments}
+                text={m.transcription?.text}
+                hasRecording={Boolean(m.recording)}
+                seek={seek}
+              />
             </TabsContent>
+            {hasEmail && (
+              <TabsContent value="email">
+                <FollowUpEmailView
+                  subject={m.insight?.followUpSubject}
+                  body={m.insight?.followUpBody}
+                />
+              </TabsContent>
+            )}
           </Tabs>
         )}
       </div>

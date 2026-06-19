@@ -106,7 +106,18 @@ El build: compila Next en modo **standalone**, copia los estáticos + **schema y
 
 ## Flujo principal
 
-1. **Crear reunión** → 2. **Grabar** (pausar/reanudar) → 3. Al finalizar, el pipeline transcribe (Whisper) y **analiza con Groq** → 4. Se generan **resumen, tareas, acuerdos, riesgos, próximos pasos, sentimiento** → 5. **Exportar** PDF/Excel → 6. **Ask MeetGenius**: pregunta en lenguaje natural sobre tu historial.
+1. **Crear reunión** → 2. **Grabar** (pausar/reanudar, con **transcripción en vivo**) → 3. Al finalizar, el pipeline transcribe (Whisper), **diariza** y **analiza con Groq** → 4. Se generan **resumen, tareas, acuerdos, riesgos, próximos pasos, sentimiento, capítulos, momentos clave y borrador de email de seguimiento** → 5. **Exportar** PDF/Excel → 6. **Ask MeetGenius**: pregunta en lenguaje natural sobre tu historial.
+
+### Transcripción interactiva, diarización e insights
+
+Inspirado en lo mejor de asistentes como Read AI, pero **local-first**:
+
+- **Transcript interactivo** — la pestaña *Transcripción* sincroniza el audio con los segmentos de Whisper: **reproductor con click-to-seek** (clic en una línea salta a ese punto), resaltado del segmento en reproducción y **búsqueda** dentro del transcript. La ruta `GET /api/meetings/[id]/audio` sirve la grabación con soporte de `Range`.
+- **Diarización «¿quién dijo qué?»** — tras transcribir, el modelo asigna un **hablante a cada segmento** (usando los participantes si se conocen); el transcript pinta cada hablante con su color y la pestaña *Participación* muestra el **talk-time** por persona. Es *best-effort*: si falla, el transcript sigue funcionando.
+- **Transcripción en vivo** — con el toggle **En vivo**, mientras grabas se envían ventanas cortas (~12 s) a `POST /api/meetings/[id]/live` y verás el texto parcial en tiempo real. No afecta a la grabación final (que la procesa el pipeline completo).
+- **Capítulos, momentos clave y email de seguimiento** — el análisis genera además una división por **temas** (con marca de tiempo clicable), **frases destacadas** y un **borrador de email** de seguimiento (copiar / abrir en tu cliente). Se guardan en el modelo `Insight`.
+
+> Tras cambiar el esquema (modelo `Insight`), recuerda `npm run db:push` en dev y `npm run db:template` para refrescar la DB que viaja en la app empaquetada.
 
 ### Captura de audio (micrófono + sistema)
 
