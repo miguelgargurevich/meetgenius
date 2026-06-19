@@ -8,6 +8,26 @@ export interface Segment {
   speaker?: string | null;
 }
 
+/** Mapa de renombrado de hablantes: etiqueta original → nombre real. */
+export type SpeakerNames = Record<string, string>;
+
+/**
+ * Aplica el renombrado de hablantes a los segmentos (punto ÚNICO de aplicación,
+ * usado por el transcript, talk-time y export). No muta la entrada.
+ * Las etiquetas sin mapeo conservan su valor original.
+ */
+export function applySpeakerNames(
+  segments: Segment[],
+  names?: SpeakerNames | null,
+): Segment[] {
+  if (!names || !Object.keys(names).length) return segments;
+  return segments.map((s) => {
+    const sp = (s.speaker ?? "").trim();
+    const mapped = sp && names[sp] ? names[sp] : s.speaker;
+    return mapped === s.speaker ? s : { ...s, speaker: mapped };
+  });
+}
+
 /** Lista ordenada y única de hablantes presentes en los segmentos. */
 export function speakersOf(segments: Segment[]): string[] {
   const seen: string[] = [];

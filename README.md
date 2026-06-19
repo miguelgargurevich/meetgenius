@@ -117,7 +117,15 @@ Inspirado en lo mejor de asistentes como Read AI, pero **local-first**:
 - **Transcripción en vivo** — con el toggle **En vivo**, mientras grabas se envían ventanas cortas (~12 s) a `POST /api/meetings/[id]/live` y verás el texto parcial en tiempo real. No afecta a la grabación final (que la procesa el pipeline completo).
 - **Capítulos, momentos clave y email de seguimiento** — el análisis genera además una división por **temas** (con marca de tiempo clicable), **frases destacadas** y un **borrador de email** de seguimiento (copiar / abrir en tu cliente). Se guardan en el modelo `Insight`.
 
-> Tras cambiar el esquema (modelo `Insight`), recuerda `npm run db:push` en dev y `npm run db:template` para refrescar la DB que viaja en la app empaquetada.
+### Inspirado en Otter.ai (local-first)
+
+- **Vocabulario personalizado** — botón **Vocabulario** (barra superior): añade nombres propios y jerga. Se pasa a Whisper (parámetro `prompt`) y al análisis/diarización para **mejorar la precisión** y respetar la ortografía. Config por organización (`Organization.vocabulary`).
+- **Renombrar hablantes** — en la pestaña *Transcripción*, botón **Renombrar** convierte "Hablante 1/2" en nombres reales (con sugerencias de participantes). Se guarda en `Transcription.speakerNames` y se aplica en lectura (transcript, talk-time y exports), sin reanalizar. Al reanalizar se resetea.
+- **Exportar transcripción** — descarga **SRT / VTT / TXT** desde los segmentos (`GET /api/meetings/[id]/transcript?format=…`), y **control de velocidad** de reproducción (0.75×–2×) en el reproductor.
+- **Carpetas y etiquetas** — organiza reuniones en **carpetas** y **etiquetas** (modelos `Folder`/`Tag`, M:N), con chips en las tarjetas y **filtros** en la lista de reuniones.
+- **Diagramas en el informe PDF** — el análisis genera **diagramas Mermaid** (flujo, secuencia, arquitectura, mindmap, timeline). El informe se renderiza como **página HTML** (`/meetings/[id]/report`) y se exporta a **PDF con `webContents.printToPDF` de Electron** (sin binarios pesados); en web se abre la vista imprimible. También hay una pestaña **Diagramas** en el detalle. Se guardan en `Insight.diagrams`.
+
+> Tras cambiar el esquema, sube `DB_SCHEMA_VERSION` en `electron/main.js` y ejecuta `npm run db:push` (dev) + `npm run db:template` (refresca la DB embebida en la app).
 
 ### Captura de audio (micrófono + sistema)
 

@@ -38,6 +38,8 @@ export interface AnalyzeContext {
   title?: string;
   participants?: string[];
   language?: string;
+  /** Vocabulario/nombres propios para sesgar transcripción y análisis. */
+  vocabulary?: string[];
 }
 
 export interface TranscriptionSegment {
@@ -54,8 +56,13 @@ export interface TranscriptionResult {
   provider: string;
 }
 
+/** Opciones de transcripción (sesgo de vocabulario vía `prompt` de Whisper). */
+export interface TranscribeOptions {
+  prompt?: string;
+}
+
 /** Proveedor de transcripción de audio. Implementado por Whisper / mock. */
 export interface TranscriptionProvider {
   readonly name: string;
-  transcribe(audioPath: string): Promise<TranscriptionResult>;
+  transcribe(audioPath: string, opts?: TranscribeOptions): Promise<TranscriptionResult>;
 }

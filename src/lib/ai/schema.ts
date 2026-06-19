@@ -70,6 +70,22 @@ export const analysisSchema = z.object({
     .optional()
     .nullable()
     .default(null),
+  diagrams: z
+    .array(
+      z.object({
+        type: z.enum([
+          "flowchart",
+          "sequenceDiagram",
+          "classDiagram",
+          "mindmap",
+          "timeline",
+        ]),
+        title: z.string(),
+        mermaid: z.string(),
+      }),
+    )
+    .optional()
+    .default([]),
 });
 
 export type AnalysisResult = z.infer<typeof analysisSchema>;
@@ -85,5 +101,6 @@ export const ANALYSIS_JSON_SHAPE = `{
   "nextSteps": string[],
   "chapters": [{ "title": string, "summary": string, "startSec": number|null }],  // temas tratados, en orden cronológico
   "highlights": [{ "quote": string, "speaker": string, "atSec": number|null }],    // 3-6 frases textuales destacadas
-  "followUpEmail": { "subject": string, "body": string }                            // borrador de email de seguimiento
+  "followUpEmail": { "subject": string, "body": string },                           // borrador de email de seguimiento
+  "diagrams": [{ "type": "flowchart"|"sequenceDiagram"|"classDiagram"|"mindmap"|"timeline", "title": string, "mermaid": string }]  // 1-3 diagramas en sintaxis Mermaid
 }`;

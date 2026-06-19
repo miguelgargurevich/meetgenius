@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
       status: sp.get("status") ?? undefined,
       from: sp.get("from") ?? undefined,
       to: sp.get("to") ?? undefined,
+      folderId: sp.get("folderId") ?? undefined,
+      tagId: sp.get("tagId") ?? undefined,
     }),
   );
 }

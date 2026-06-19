@@ -22,16 +22,19 @@ datasource db {
 // ── Identidad / Multi-tenant ───────────────────────────────────
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  vocabulary Json     @default("[]") // string[]: nombres propios + jerga (mejora Whisper/análisis)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   users           User[]
   meetings        Meeting[]
   auditLogs       AuditLog[]
   calendarSources CalendarSource[]
+  folders         Folder[]
+  tags            Tag[]
 }
 
 // Suscripción a un calendario externo por URL .ics (Outlook/M365, Google…).
@@ -47,6 +50,31 @@ model CalendarSource {
   color          String?
   enabled        Boolean      @default(true)
   createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+// Carpetas y etiquetas para organizar reuniones (M:N con Meeting).
+model Folder {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  name           String
+  color          String?
+  createdAt      DateTime     @default(now())
+  meetings       Meeting[]    @relation("MeetingFolders")
+
+  @@index([organizationId])
+}
+
+model Tag {
+  id             String       @id @default(cuid())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  name           String
+  color          String?
+  createdAt      DateTime     @default(now())
+  meetings       Meeting[]    @relation("MeetingTags")
 
   @@index([organizationId])
 }
@@ -104,6 +132,8 @@ model Meeting {
   reports       Report[]
   aiJobs        AIJob[]
   embeddings    Embedding[]
+  folders       Folder[]       @relation("MeetingFolders")
+  tags          Tag[]          @relation("MeetingTags")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -134,6 +164,7 @@ model Transcription {
   error     String?
   runtimeMs Int      @default(0)
   segments  Json? // [{ start, end, speaker?, text }]
+  speakerNames Json? // mapa etiqueta→nombre real: { "Hablante 1": "Ana" } (null = {})
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -149,6 +180,7 @@ model Insight {
   meetingId       String   @unique
   chapters        Json     @default("[]") // [{ title, summary, startSec }]
   highlights      Json     @default("[]") // [{ quote, speaker, atSec }]
+  diagrams        Json     @default("[]") // [{ type, title, mermaid }]
   followUpSubject String?
   followUpBody    String?
   createdAt       DateTime @default(now())

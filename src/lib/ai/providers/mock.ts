@@ -66,6 +66,22 @@ export class MockLanguageProvider implements LanguageProvider {
           .map((s) => `• ${s.slice(0, 100)}`)
           .join("\n")}\n\nQuedo atento a los próximos pasos.\n\nSaludos.`,
       },
+      diagrams: [
+        {
+          type: "flowchart" as const,
+          title: "Flujo de la reunión",
+          mermaid:
+            'flowchart TD\n  A["Inicio"] --> B["Discusión"]\n  B --> C["Acuerdos"]\n  C --> D["Próximos pasos"]',
+        },
+        {
+          type: "mindmap" as const,
+          title: "Temas tratados",
+          mermaid: `mindmap\n  root((Reunión))\n${sentences
+            .slice(0, 3)
+            .map((_, i) => `    Tema${i + 1}`)
+            .join("\n")}`,
+        },
+      ],
     };
   }
 

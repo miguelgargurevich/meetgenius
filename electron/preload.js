@@ -17,6 +17,9 @@ contextBridge.exposeInMainWorld("meetgenius", {
     return () => ipcRenderer.removeListener("meeting:status", handler);
   },
 
+  // Exportar informe a PDF (HTML + printToPDF, con diagramas Mermaid).
+  exportReportPdf: (meetingId) => ipcRenderer.invoke("report:export-pdf", meetingId),
+
   // Recordatorios de reuniones.
   setReminders: (cfg) => ipcRenderer.send("reminders-config", cfg),
   onReminderRecord: (cb) => {

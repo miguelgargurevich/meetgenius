@@ -30,6 +30,8 @@ import {
 } from "@/components/meetings/analysis-views";
 import { TranscriptView } from "@/components/meetings/transcript-view";
 import { ParticipationView } from "@/components/meetings/participation-view";
+import { TaxonomyControls } from "@/components/meetings/taxonomy-controls";
+import { DiagramsView } from "@/components/meetings/diagrams-view";
 import {
   ChaptersView,
   HighlightsView,
@@ -39,6 +41,8 @@ import { useMeeting } from "@/hooks/use-meetings";
 import { MEETING_STATUS, SENTIMENT } from "@/lib/domain";
 import { api } from "@/lib/api-client";
 import { formatDuration } from "@/lib/utils";
+import { applySpeakerNames, speakersOf, type Segment } from "@/lib/transcript";
+import { desktop as desktopBridge, isDesktopApp } from "@/lib/desktop";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -63,6 +67,8 @@ function MeetingDetailInner() {
     setTab("transcript");
   }, []);
 
+  const [exportingPdf, setExportingPdf] = React.useState(false);
+
   const reanalyze = async () => {
     setReanalyzing(true);
     try {
@@ -72,6 +78,25 @@ function MeetingDetailInner() {
       toast.error((e as Error).message);
     } finally {
       setReanalyzing(false);
+    }
+  };
+
+  // PDF: en escritorio renderiza la vista HTML (con diagramas) y la imprime;
+  // en web abre la vista imprimible para usar "Guardar como PDF" del navegador.
+  const exportPdf = async () => {
+    if (isDesktopApp() && desktopBridge()?.exportReportPdf) {
+      setExportingPdf(true);
+      try {
+        const res = await desktopBridge()!.exportReportPdf!(id);
+        if (res?.ok) toast.success(`PDF guardado: ${res.filePath}`);
+        else if (res?.error) toast.error(`No se pudo generar el PDF: ${res.error}`);
+      } catch (e) {
+        toast.error((e as Error).message);
+      } finally {
+        setExportingPdf(false);
+      }
+    } else {
+      window.open(`/meetings/${id}/report`, "_blank");
     }
   };
 
@@ -89,11 +114,17 @@ function MeetingDetailInner() {
 
   const showRecorder = m.status === "DRAFT" || m.status === "RECORDING" || m.status === "PAUSED";
   const processing = m.status === "PROCESSING";
-  const segments = m.transcription?.segments;
-  const hasSpeakers =
-    Array.isArray(segments) && segments.some((s: any) => (s?.speaker ?? "").trim());
+  const rawSegments = (Array.isArray(m.transcription?.segments)
+    ? m.transcription.segments
+    : []) as Segment[];
+  const speakerNames = (m.transcription?.speakerNames as Record<string, string> | null) ?? {};
+  // Aplicamos el renombrado en UN punto y propagamos a transcript y participación.
+  const segments = applySpeakerNames(rawSegments, speakerNames);
+  const renameLabels = speakersOf(rawSegments);
+  const hasSpeakers = renameLabels.length > 0;
   const chapters = m.insight?.chapters as any[] | undefined;
   const highlights = m.insight?.highlights as any[] | undefined;
+  const diagrams = m.insight?.diagrams as any[] | undefined;
   const hasEmail = Boolean(m.insight?.followUpSubject || m.insight?.followUpBody);
 
   return (
@@ -108,11 +139,14 @@ function MeetingDetailInner() {
             </Button>
             {m.status === "COMPLETED" && (
               <>
-                <a href={`/api/meetings/${id}/report?format=pdf`}>
-                  <Button variant="outline" size="sm">
-                    <FileDown className="size-4" /> PDF
-                  </Button>
-                </a>
+                <Button variant="outline" size="sm" onClick={exportPdf} disabled={exportingPdf}>
+                  {exportingPdf ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <FileDown className="size-4" />
+                  )}{" "}
+                  PDF
+                </Button>
                 <a href={`/api/meetings/${id}/report?format=excel`}>
                   <Button variant="outline" size="sm">
                     <FileSpreadsheet className="size-4" /> Excel
@@ -148,6 +182,12 @@ function MeetingDetailInner() {
             </span>
           )}
         </div>
+
+        <TaxonomyControls
+          meetingId={id}
+          selectedFolderIds={(m.folders ?? []).map((f: any) => f.id)}
+          selectedTagIds={(m.tags ?? []).map((t: any) => t.id)}
+        />
 
         {showRecorder && <RecorderPanel meetingId={id} autoStart={params.get("record") === "1"} />}
 
@@ -186,6 +226,7 @@ function MeetingDetailInner() {
               <TabsTrigger value="next">Próximos pasos</TabsTrigger>
               {chapters?.length ? <TabsTrigger value="chapters">Capítulos</TabsTrigger> : null}
               {highlights?.length ? <TabsTrigger value="highlights">Momentos</TabsTrigger> : null}
+              {diagrams?.length ? <TabsTrigger value="diagrams">Diagramas</TabsTrigger> : null}
               {hasSpeakers && <TabsTrigger value="participation">Participación</TabsTrigger>}
               <TabsTrigger value="transcript">Transcripción</TabsTrigger>
               {hasEmail && <TabsTrigger value="email">Email</TabsTrigger>}
@@ -235,6 +276,11 @@ function MeetingDetailInner() {
                 <HighlightsView highlights={highlights} onSeek={goTo} />
               </TabsContent>
             ) : null}
+            {diagrams?.length ? (
+              <TabsContent value="diagrams">
+                <DiagramsView diagrams={diagrams} />
+              </TabsContent>
+            ) : null}
             {hasSpeakers && (
               <TabsContent value="participation">
                 <ParticipationView segments={segments} />
@@ -243,10 +289,13 @@ function MeetingDetailInner() {
             <TabsContent value="transcript">
               <TranscriptView
                 meetingId={id}
-                segments={m.transcription?.segments}
+                segments={segments}
                 text={m.transcription?.text}
                 hasRecording={Boolean(m.recording)}
                 seek={seek}
+                renameLabels={renameLabels}
+                speakerNames={speakerNames}
+                participants={m.participants}
               />
             </TabsContent>
             {hasEmail && (

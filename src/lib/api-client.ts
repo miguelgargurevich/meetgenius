@@ -22,6 +22,12 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: body ? JSON.stringify(body) : undefined,
     }),
+  put: <T>(url: string, body?: unknown) =>
+    request<T>(url, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    }),
   del: <T>(url: string) => request<T>(url, { method: "DELETE" }),
   postForm: <T>(url: string, form: FormData) =>
     request<T>(url, { method: "POST", body: form }),

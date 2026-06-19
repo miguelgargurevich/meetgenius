@@ -20,6 +20,8 @@ export interface MeetingListItem {
   createdAt: string;
   owner: { name: string } | null;
   _count: { tasks: number; agreements: number; risks: number };
+  tags: { id: string; name: string; color: string | null }[];
+  folders: { id: string; name: string; color: string | null }[];
 }
 
 export function useMeetings(filters?: Record<string, string | undefined>) {

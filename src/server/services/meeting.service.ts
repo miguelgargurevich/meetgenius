@@ -11,11 +11,20 @@ import type { CreateMeetingInput, UpdateMeetingInput } from "@/server/validators
 const log = logger.child("meetings");
 
 export const meetingService = {
-  async list(filters?: { q?: string; status?: string; from?: string; to?: string }) {
+  async list(filters?: {
+    q?: string;
+    status?: string;
+    from?: string;
+    to?: string;
+    folderId?: string;
+    tagId?: string;
+  }) {
     const org = await getCurrentOrg();
     return meetingRepository.findMany({
       organizationId: org.id,
       ...(filters?.status ? { status: filters.status as never } : {}),
+      ...(filters?.folderId ? { folders: { some: { id: filters.folderId } } } : {}),
+      ...(filters?.tagId ? { tags: { some: { id: filters.tagId } } } : {}),
       ...(filters?.q
         ? {
             OR: [
@@ -138,5 +147,18 @@ export const meetingService = {
       where: { id: taskId },
       data: data as never,
     });
+  },
+
+  /** Renombra hablantes (mapa etiqueta→nombre); se aplica en lectura. */
+  async renameSpeakers(meetingId: string, names: Record<string, string>) {
+    // Descartamos entradas vacías (volver al nombre original = no mapear).
+    const clean = Object.fromEntries(
+      Object.entries(names).filter(([k, v]) => k.trim() && v.trim()),
+    );
+    await prisma.transcription.update({
+      where: { meetingId },
+      data: { speakerNames: clean },
+    });
+    return { ok: true };
   },
 };

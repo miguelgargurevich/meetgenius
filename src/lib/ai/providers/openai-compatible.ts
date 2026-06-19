@@ -89,7 +89,7 @@ export class OpenAICompatibleProvider implements LanguageProvider {
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: DIARIZE_SYSTEM_PROMPT },
-          { role: "user", content: buildDiarizePrompt(segments, ctx?.participants) },
+          { role: "user", content: buildDiarizePrompt(segments, ctx?.participants, ctx?.vocabulary) },
         ],
       });
       const parsed = parseJsonObject(res.choices[0]?.message?.content ?? "") as {

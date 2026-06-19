@@ -13,6 +13,8 @@ export const meetingRepository = {
       include: {
         _count: { select: { tasks: true, agreements: true, risks: true } },
         owner: { select: { name: true } },
+        tags: true,
+        folders: true,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -34,6 +36,8 @@ export const meetingRepository = {
         nextSteps: { orderBy: { order: "asc" } },
         reports: true,
         aiJobs: { orderBy: { createdAt: "desc" } },
+        tags: true,
+        folders: true,
       },
     });
   },

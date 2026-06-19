@@ -36,6 +36,16 @@ export const chatSchema = z.object({
 });
 export type ChatInput = z.infer<typeof chatSchema>;
 
+export const vocabularySchema = z.object({
+  terms: z.array(z.string()).max(200),
+});
+export type VocabularyInput = z.infer<typeof vocabularySchema>;
+
+export const speakerNamesSchema = z.object({
+  names: z.record(z.string(), z.string()),
+});
+export type SpeakerNamesInput = z.infer<typeof speakerNamesSchema>;
+
 export const addSourceSchema = z
   .object({
     name: z.string().min(1, "Nombre requerido"),
@@ -47,6 +57,17 @@ export const addSourceSchema = z
     message: "Indica una URL .ics o adjunta un archivo .ics",
   });
 export type AddSourceInput = z.infer<typeof addSourceSchema>;
+
+export const taxonomySchema = z.object({
+  name: z.string().min(1, "Nombre requerido"),
+  color: z.string().optional().nullable(),
+});
+export type TaxonomyInput = z.infer<typeof taxonomySchema>;
+
+export const meetingTaxonomySchema = z.object({
+  folderIds: z.array(z.string()).optional(),
+  tagIds: z.array(z.string()).optional(),
+});
 
 export const historyQuerySchema = z.object({
   q: z.string().optional(),

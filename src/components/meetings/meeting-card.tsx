@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
-import { Clock, Users, ListTodo, Handshake, AlertTriangle, Trash2 } from "lucide-react";
+import { Clock, Users, ListTodo, Handshake, AlertTriangle, Trash2, Folder } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
@@ -44,6 +44,31 @@ export function MeetingCard({ meeting }: { meeting: MeetingListItem }) {
             <AlertTriangle className="size-3.5" /> {meeting._count.risks}
           </span>
         </div>
+        {(meeting.folders?.length > 0 || meeting.tags?.length > 0) && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {meeting.folders?.map((f) => (
+              <span
+                key={f.id}
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
+                style={{
+                  background: `color-mix(in oklab, ${f.color ?? "var(--primary)"} 18%, transparent)`,
+                  color: f.color ?? "var(--brand-400)",
+                }}
+              >
+                <Folder className="size-2.5" /> {f.name}
+              </span>
+            ))}
+            {meeting.tags?.map((t) => (
+              <span
+                key={t.id}
+                className="inline-flex items-center gap-1 rounded-full bg-[var(--muted)] px-2 py-0.5 text-[10px]"
+              >
+                <span className="size-2 rounded-full" style={{ background: t.color ?? "var(--primary)" }} />
+                {t.name}
+              </span>
+            ))}
+          </div>
+        )}
         <div className="mt-3 flex items-center justify-between text-xs text-[var(--muted-foreground)]">
           <span>
             {formatDistanceToNow(new Date(meeting.createdAt), { addSuffix: true, locale: es })}

@@ -43,6 +43,7 @@ interface DesktopBridge {
   onMeetingStatus?: (cb: (status: MeetingStatus) => void) => () => void;
   setReminders?: (cfg: { enabled: boolean; leadMinutes?: number }) => void;
   onReminderRecord?: (cb: (payload: ReminderPayload) => void) => () => void;
+  exportReportPdf?: (meetingId: string) => Promise<{ ok: boolean; filePath?: string; error?: string }>;
 }
 
 export function desktop(): DesktopBridge | undefined {

@@ -3,7 +3,11 @@ import OpenAI from "openai";
 import { env } from "@/lib/env";
 import { AIProviderError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
-import type { TranscriptionProvider, TranscriptionResult } from "./types";
+import type {
+  TranscribeOptions,
+  TranscriptionProvider,
+  TranscriptionResult,
+} from "./types";
 
 const log = logger.child("transcription");
 
@@ -18,12 +22,13 @@ class WhisperProvider implements TranscriptionProvider {
     this.client = new OpenAI({ apiKey: opts.apiKey, baseURL: opts.baseURL });
   }
 
-  async transcribe(audioPath: string): Promise<TranscriptionResult> {
+  async transcribe(audioPath: string, opts?: TranscribeOptions): Promise<TranscriptionResult> {
     try {
       const res = await this.client.audio.transcriptions.create({
         file: createReadStream(audioPath) as unknown as File,
         model: env.WHISPER_MODEL,
         response_format: "verbose_json",
+        ...(opts?.prompt ? { prompt: opts.prompt } : {}),
       });
       // verbose_json incluye `segments` y `language`
       const anyRes = res as unknown as {

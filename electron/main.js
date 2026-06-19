@@ -1,7 +1,7 @@
 // MeetGenius — proceso principal de Electron.
 // En desarrollo carga el servidor Next (localhost:3000).
 // En producción levanta el servidor Next standalone embebido y lo carga.
-const { app, BrowserWindow, shell, session, desktopCapturer, systemPreferences, ipcMain } = require("electron");
+const { app, BrowserWindow, shell, session, desktopCapturer, systemPreferences, ipcMain, dialog } = require("electron");
 const path = require("path");
 const { startMeetingDetector, runDetection } = require("./meeting-detector");
 const { startReminders, setReminderConfig } = require("./reminders");
@@ -27,6 +27,39 @@ const isDev = process.env.ELECTRON_DEV === "1";
 const PORT = process.env.PORT || 3000;
 
 let mainWindow = null;
+
+// Exporta el informe a PDF: renderiza la vista HTML (con diagramas Mermaid) en
+// una ventana oculta y la imprime con printToPDF. Devuelve la ruta guardada.
+ipcMain.handle("report:export-pdf", async (_e, meetingId) => {
+  const win = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true } });
+  try {
+    await win.loadURL(`http://localhost:${PORT}/meetings/${meetingId}/report`);
+
+    // Esperamos a que Mermaid termine de renderizar (window.__reportReady).
+    const start = Date.now();
+    while (Date.now() - start < 15000) {
+      const ready = await win.webContents
+        .executeJavaScript("window.__reportReady === true")
+        .catch(() => false);
+      if (ready) break;
+      await new Promise((r) => setTimeout(r, 150));
+    }
+
+    const pdf = await win.webContents.printToPDF({ printBackground: true, pageSize: "A4" });
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      defaultPath: `meetgenius-${meetingId}.pdf`,
+      filters: [{ name: "PDF", extensions: ["pdf"] }],
+    });
+    if (canceled || !filePath) return { ok: false };
+    require("fs").writeFileSync(filePath, pdf);
+    return { ok: true, filePath };
+  } catch (err) {
+    console.error("export-pdf falló:", err);
+    return { ok: false, error: String(err) };
+  } finally {
+    if (!win.isDestroyed()) win.destroy();
+  }
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -134,7 +167,7 @@ async function startProductionServer() {
   // cambió la versión del esquema (evita DBs desfasadas tras actualizar la app).
   // Nota: refrescar reinicia los datos locales; mientras el esquema esté en
   // evolución es el comportamiento esperado (migraciones formales más adelante).
-  const DB_SCHEMA_VERSION = "6"; // súbelo al cambiar el schema de Prisma
+  const DB_SCHEMA_VERSION = "7"; // súbelo al cambiar el schema de Prisma
   const fs = require("fs");
   const dbPath = path.join(app.getPath("userData"), "meetgenius.db");
   const versionPath = path.join(app.getPath("userData"), "db.version");

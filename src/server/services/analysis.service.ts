@@ -6,6 +6,7 @@ import {
   type AnalysisResult,
 } from "@/lib/ai";
 import type { TranscriptionResult } from "@/lib/ai/types";
+import { vocabularyService, buildVocabularyPrompt } from "./vocabulary.service";
 
 const log = logger.child("pipeline");
 
@@ -21,14 +22,20 @@ export async function runAnalysisPipeline(meetingId: string): Promise<void> {
   });
   if (!meeting) return;
 
+  const vocabulary = await vocabularyService.getVocabulary().catch(() => [] as string[]);
   const ctx = {
     title: meeting.title,
     participants: (meeting.participants as string[] | null) ?? [],
+    vocabulary,
   };
 
   try {
-    // ── 1. Transcripción ──────────────────────────────────────
-    const transcript = await transcribe(meetingId, meeting.recording?.filePath);
+    // ── 1. Transcripción (sesgada por el vocabulario del usuario) ──
+    const transcript = await transcribe(
+      meetingId,
+      meeting.recording?.filePath,
+      buildVocabularyPrompt(vocabulary),
+    );
 
     // ── 2. Diarización (¿quién dijo qué?) ─────────────────────
     // Aproximada por texto; no aborta el pipeline si falla.
@@ -57,6 +64,7 @@ export async function runAnalysisPipeline(meetingId: string): Promise<void> {
 async function transcribe(
   meetingId: string,
   filePath?: string | null,
+  prompt?: string,
 ): Promise<TranscriptionResult> {
   const provider = getTranscriptionProvider();
   const started = Date.now();
@@ -64,7 +72,7 @@ async function transcribe(
     data: { meetingId, type: "TRANSCRIPTION", provider: provider.name, status: "RUNNING" },
   });
 
-  const result = await provider.transcribe(filePath ?? "");
+  const result = await provider.transcribe(filePath ?? "", prompt ? { prompt } : undefined);
   const runtimeMs = Date.now() - started;
 
   await prisma.transcription.upsert({
@@ -83,6 +91,8 @@ async function transcribe(
       status: "SUCCEEDED",
       runtimeMs,
       segments: result.segments as unknown as object,
+      // Reanálisis: regeneramos segments → el mapeo de nombres queda obsoleto.
+      speakerNames: {},
     },
   });
   await prisma.aIJob.update({
@@ -177,12 +187,14 @@ async function persistAnalysis(meetingId: string, a: AnalysisResult) {
         meetingId,
         chapters: (a.chapters ?? []) as unknown as object,
         highlights: (a.highlights ?? []) as unknown as object,
+        diagrams: (a.diagrams ?? []) as unknown as object,
         followUpSubject: a.followUpEmail?.subject ?? null,
         followUpBody: a.followUpEmail?.body ?? null,
       },
       update: {
         chapters: (a.chapters ?? []) as unknown as object,
         highlights: (a.highlights ?? []) as unknown as object,
+        diagrams: (a.diagrams ?? []) as unknown as object,
         followUpSubject: a.followUpEmail?.subject ?? null,
         followUpBody: a.followUpEmail?.body ?? null,
       },

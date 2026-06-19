@@ -2,15 +2,17 @@
 
 import * as React from "react";
 import { useTheme } from "next-themes";
-import { Moon, Sun, Search, Radio, Bell, BellOff } from "lucide-react";
+import { Moon, Sun, Search, Radio, Bell, BellOff, SpellCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar } from "@/components/ui/misc";
+import { VocabularyDialog } from "@/components/settings/vocabulary-dialog";
 import { desktop as desktopBridge, isDesktopApp } from "@/lib/desktop";
 import { cn } from "@/lib/utils";
 
 export function Topbar() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
+  const [vocabOpen, setVocabOpen] = React.useState(false);
   const [autoRecord, setAutoRecord] = React.useState(false);
   const [reminders, setReminders] = React.useState(true);
   const [desktop, setDesktop] = React.useState(false);
@@ -93,6 +95,14 @@ export function Topbar() {
           </>
         )}
         <button
+          onClick={() => setVocabOpen(true)}
+          title="Vocabulario personalizado (nombres y jerga)"
+          className="flex items-center gap-1.5 rounded-md border border-[var(--border)] px-2.5 py-1.5 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
+        >
+          <SpellCheck className="size-3.5" />
+          Vocabulario
+        </button>
+        <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className="flex size-9 items-center justify-center rounded-md text-[var(--muted-foreground)] hover:bg-[var(--accent)] hover:text-[var(--foreground)]"
           aria-label="Cambiar tema"
@@ -101,6 +111,8 @@ export function Topbar() {
         </button>
         <Avatar name="Usuario Demo" />
       </div>
+
+      <VocabularyDialog open={vocabOpen} onClose={() => setVocabOpen(false)} />
     </header>
   );
 }
