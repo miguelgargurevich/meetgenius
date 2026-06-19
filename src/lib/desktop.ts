@@ -34,19 +34,6 @@ export interface ReminderPayload {
   joinUrl: string | null;
 }
 
-export interface CreateEventPayload {
-  title: string;
-  startISO: string;
-  endISO: string;
-  notes?: string;
-  url?: string;
-}
-
-export interface CreateEventResult {
-  id?: string;
-  error?: string;
-}
-
 interface DesktopBridge {
   platform: string;
   isDesktop?: boolean;
@@ -54,13 +41,6 @@ interface DesktopBridge {
   getScreenAccess?: () => Promise<string>;
   getMeetingStatus?: () => Promise<MeetingStatus>;
   onMeetingStatus?: (cb: (status: MeetingStatus) => void) => () => void;
-  getTodayAgenda?: () => Promise<TodayAgenda>;
-  getCalendarRange?: (start: string, end: string) => Promise<TodayAgenda>;
-  createCalendarEvent?: (payload: CreateEventPayload) => Promise<CreateEventResult>;
-  updateCalendarEvent?: (
-    payload: CreateEventPayload & { eventId: string },
-  ) => Promise<CreateEventResult>;
-  deleteCalendarEvent?: (eventId: string) => Promise<{ ok?: boolean; error?: string }>;
   setReminders?: (cfg: { enabled: boolean; leadMinutes?: number }) => void;
   onReminderRecord?: (cb: (payload: ReminderPayload) => void) => () => void;
 }

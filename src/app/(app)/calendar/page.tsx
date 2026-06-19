@@ -13,16 +13,17 @@ import {
   format,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Plus, RefreshCw, CalendarDays, AlertCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw, CalendarPlus, CalendarX } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MonthView } from "@/components/calendar/month-view";
 import { WeekView } from "@/components/calendar/week-view";
+import { CalendarSourcesDialog } from "@/components/calendar/calendar-sources-dialog";
 import { CreateMeetingDialog } from "@/components/meetings/create-meeting-dialog";
 import { useCalendar, useSyncCalendar, type CalendarItem } from "@/hooks/use-calendar";
-import { isDesktopApp } from "@/lib/desktop";
+import { useSources } from "@/hooks/use-calendar-sources";
 import { api } from "@/lib/api-client";
 
 type ViewMode = "month" | "week";
@@ -34,12 +35,12 @@ function toLocalInput(d: Date) {
 export default function CalendarPage() {
   const router = useRouter();
   const sync = useSyncCalendar();
+  const { data: sources } = useSources();
   const [view, setView] = React.useState<ViewMode>("month");
   const [cursor, setCursor] = React.useState(new Date());
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [sourcesOpen, setSourcesOpen] = React.useState(false);
   const [defaultDate, setDefaultDate] = React.useState<string | undefined>();
-  const [desktop, setDesktop] = React.useState(false);
-  React.useEffect(() => setDesktop(isDesktopApp()), []);
 
   const { rangeStart, rangeEnd } = React.useMemo(() => {
     if (view === "month") {
@@ -52,7 +53,8 @@ export default function CalendarPage() {
     return { rangeStart: s, rangeEnd: addDays(s, 7) };
   }, [view, cursor]);
 
-  const { items, isLoading, syncing, macosError } = useCalendar(rangeStart, rangeEnd);
+  const { items, isLoading, syncing } = useCalendar(rangeStart, rangeEnd);
+  const noSources = sources && sources.length === 0;
 
   const navigate = (dir: -1 | 1) =>
     setCursor((c) => (view === "month" ? addMonths(c, dir) : addWeeks(c, dir)));
@@ -69,7 +71,7 @@ export default function CalendarPage() {
       router.push(`/meetings/${it.meetingId}`);
       return;
     }
-    // Evento de macOS: si es videollamada, ofrecemos grabarla.
+    // Evento del calendario externo: si es videollamada, ofrecemos grabarla.
     if (it.joinUrl || it.platform) {
       try {
         const meeting = await api.post<{ id: string }>("/api/meetings", {
@@ -87,8 +89,6 @@ export default function CalendarPage() {
     }
   };
 
-  const onSync = () => sync();
-
   const title =
     view === "month"
       ? format(cursor, "MMMM yyyy", { locale: es })
@@ -98,11 +98,16 @@ export default function CalendarPage() {
     <div>
       <PageHeader
         title="Calendario"
-        description="Tus reuniones y eventos sincronizados en un solo lugar."
+        description="Tus reuniones y los calendarios que conectes, en un solo lugar."
         action={
-          <Button onClick={() => openCreate()}>
-            <Plus className="size-4" /> Nueva reunión
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setSourcesOpen(true)}>
+              <CalendarPlus className="size-4" /> Calendarios
+            </Button>
+            <Button onClick={() => openCreate()}>
+              <Plus className="size-4" /> Nueva reunión
+            </Button>
+          </div>
         }
       />
 
@@ -136,25 +141,25 @@ export default function CalendarPage() {
                 </button>
               ))}
             </div>
-            {desktop && (
-              <Button variant="outline" size="sm" onClick={onSync} disabled={syncing}>
-                <RefreshCw className={`size-4 ${syncing ? "animate-spin" : ""}`} />
-                {syncing ? "Sincronizando…" : "Sincronizar"}
-              </Button>
-            )}
+            <Button variant="outline" size="sm" onClick={() => sync()} disabled={syncing}>
+              <RefreshCw className={`size-4 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Sincronizando…" : "Sincronizar"}
+            </Button>
           </div>
         </div>
 
-        {desktop && macosError && (
-          <div className="flex items-start gap-2 rounded-md border border-[var(--warning)]/40 bg-[color-mix(in_oklab,var(--warning)_8%,transparent)] p-3 text-xs">
-            <AlertCircle className="mt-0.5 size-4 shrink-0 text-[var(--warning)]" />
-            <p className="text-[var(--muted-foreground)]">
-              No se pudo leer el calendario de macOS (solo se muestran las reuniones de la app). Concede el
-              permiso de <span className="font-medium text-[var(--foreground)]">Automatización → Calendario</span> a
-              la app en Ajustes del Sistema → Privacidad y seguridad → Automatización. En la app instalada (.dmg)
-              aparece como <span className="font-medium text-[var(--foreground)]">MeetGenius</span>; en desarrollo,
-              como <span className="font-medium text-[var(--foreground)]">Visual Studio Code</span>.
-            </p>
+        {noSources && (
+          <div className="flex items-start justify-between gap-3 rounded-md border border-[var(--border)] bg-[color-mix(in_oklab,var(--primary)_6%,var(--card))] p-4 text-sm">
+            <div className="flex items-start gap-2">
+              <CalendarX className="mt-0.5 size-4 shrink-0 text-[var(--brand-400)]" />
+              <p className="text-[var(--muted-foreground)]">
+                Aún no has conectado ningún calendario. Suscríbete por URL <strong>.ics</strong> (Outlook/Microsoft 365
+                o Google) para ver tus eventos junto a tus reuniones.
+              </p>
+            </div>
+            <Button size="sm" onClick={() => setSourcesOpen(true)}>
+              <CalendarPlus className="size-4" /> Conectar
+            </Button>
           </div>
         )}
 
@@ -177,11 +182,8 @@ export default function CalendarPage() {
         )}
       </div>
 
-      <CreateMeetingDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        defaultDate={defaultDate}
-      />
+      <CreateMeetingDialog open={dialogOpen} onClose={() => setDialogOpen(false)} defaultDate={defaultDate} />
+      <CalendarSourcesDialog open={sourcesOpen} onClose={() => setSourcesOpen(false)} />
     </div>
   );
 }

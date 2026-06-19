@@ -123,18 +123,18 @@ MeetGenius detecta automáticamente cuándo entras a una **videollamada** y te o
 
 **Permisos macOS** (se piden una vez): *Automatización* (leer la URL del navegador) y *Accesibilidad* (títulos de ventana de Zoom/Teams). Sin ellos, la autodetección queda inactiva pero la grabación manual sigue funcionando.
 
-### Integración de calendario (escritorio)
+### Integración de calendario (suscripción ICS)
 
-MeetGenius lee tu **calendario de macOS** vía **EventKit** — esto cubre de una sola vez todas las cuentas que tengas agregadas en Calendario.app (iCloud, **Google**, **Microsoft 365 / Outlook**), sin OAuth.
+MeetGenius se suscribe a tu calendario por su **URL `.ics`** y lo lee **en el servidor** (no por el sistema operativo), así que funciona igual en **dev, app empaquetada y web**, sin permisos de macOS.
 
-- **Vista de Calendario** (sección *Calendario*): mes y semana que unen en una sola vista tus **reuniones de la app** + los **eventos sincronizados de macOS** (colores distintos). Click en un día → crear; click en evento de la app → abrir; click en evento de calendario con videollamada → grabar.
-- **Agenda de hoy** en el dashboard: tus reuniones del día, con detección del enlace de videollamada (Meet/Teams/Zoom/Webex) y botón **Grabar** por evento.
-- **Sincronización**: automática (cada 5 min) + botón **Sincronizar** manual. Lee el rango visible (mes/semana), no solo hoy.
-- **Sincronización bidireccional completa**: al crear/editar una reunión con fecha, el checkbox *"Sincronizar con mi calendario de macOS"* crea o **actualiza** el evento nativo (vía EventKit). Al **eliminar** la reunión en la app, también se borra el evento. Editar una reunión se hace con el botón **Editar** en su detalle.
-- Al **autodetectar** una llamada, MeetGenius cruza con el evento en curso para usar su **título e invitados reales** (en vez de un nombre genérico).
-- **Permiso macOS**: *Calendarios* (Ajustes del Sistema → Privacidad y seguridad → Calendarios → MeetGenius). Sin él, la vista muestra solo las reuniones de la app y avisa.
+- **Conectar**: en la sección *Calendario* → botón **Calendarios** → pega la URL `.ics`. Soporta varias fuentes.
+  - **Outlook / Microsoft 365**: Outlook Web → Configuración → Calendario → Calendarios compartidos → *Publicar calendario* → copia el enlace **ICS**.
+  - **Google Calendar**: Configuración del calendario → Integrar calendario → *Dirección secreta en formato iCal*.
+- **Vista de Calendario**: mes y semana que unen en una sola vista tus **reuniones de la app** + los **eventos del calendario suscrito** (colores distintos, eventos recurrentes y de todo el día incluidos). Click en un día → crear; click en evento de la app → abrir; click en evento con videollamada → grabar.
+- **Agenda de hoy** en el dashboard + **recordatorios nativos** antes de cada reunión, alimentados por la misma suscripción.
+- **Sincronización**: automática (cada 5 min) + botón **Sincronizar** manual; caché de ~60s del feed.
 
-> Requisito: tener la cuenta (p. ej. Outlook/Microsoft 365) agregada en **Calendario.app** del Mac. Integración OAuth directa con Google/Microsoft Graph queda en el roadmap.
+> **Solo lectura**: ICS no permite escribir en el calendario externo, por lo que crear/editar una reunión en MeetGenius **no** se propaga al calendario de origen. Para escritura bidireccional en tiempo real, el roadmap contempla OAuth con Microsoft Graph / Google Calendar.
 
 ### Recordatorios nativos (escritorio)
 

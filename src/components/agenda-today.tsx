@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Calendar, Clock, Users, Video, Mic, AlertCircle } from "lucide-react";
+import { Calendar, Clock, Users, Video, Mic } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/misc";
 import { useTodayAgenda } from "@/hooks/use-agenda";
-import { isDesktopApp, type CalendarEvent } from "@/lib/desktop";
+import { type CalendarEvent } from "@/lib/desktop";
 import { api } from "@/lib/api-client";
 
 const PLATFORM_LABEL: Record<string, string> = {
@@ -25,10 +25,6 @@ export function AgendaToday() {
   const router = useRouter();
   const { data, isLoading } = useTodayAgenda();
   const [creatingId, setCreatingId] = React.useState<string | null>(null);
-  const [desktop, setDesktop] = React.useState(false);
-  React.useEffect(() => setDesktop(isDesktopApp()), []);
-
-  if (!desktop) return null; // solo en escritorio (evita mismatch de hidratación)
 
   const record = async (ev: CalendarEvent) => {
     setCreatingId(ev.id);
@@ -61,15 +57,7 @@ export function AgendaToday() {
         </span>
       </CardHeader>
       <CardContent>
-        {data?.error === "no-access" ? (
-          <div className="flex items-start gap-2 rounded-md border border-[var(--warning)]/40 bg-[color-mix(in_oklab,var(--warning)_8%,transparent)] p-3 text-xs">
-            <AlertCircle className="mt-0.5 size-4 shrink-0 text-[var(--warning)]" />
-            <p className="text-[var(--muted-foreground)]">
-              Concede acceso a <span className="font-medium text-[var(--foreground)]">Calendarios</span> en
-              Ajustes del Sistema → Privacidad y seguridad → Calendarios → MeetGenius, y reinicia la app.
-            </p>
-          </div>
-        ) : isLoading ? (
+        {isLoading ? (
           <div className="flex items-center gap-2 py-6 text-sm text-[var(--muted-foreground)]">
             <Spinner /> Cargando agenda…
           </div>

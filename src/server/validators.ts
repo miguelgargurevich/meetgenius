@@ -36,6 +36,12 @@ export const chatSchema = z.object({
 });
 export type ChatInput = z.infer<typeof chatSchema>;
 
+export const addSourceSchema = z.object({
+  name: z.string().min(1, "Nombre requerido"),
+  url: z.string().url("URL .ics inválida"),
+});
+export type AddSourceInput = z.infer<typeof addSourceSchema>;
+
 export const historyQuerySchema = z.object({
   q: z.string().optional(),
   from: z.string().optional(),

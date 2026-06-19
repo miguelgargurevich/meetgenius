@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import type { CreateMeetingInput, UpdateMeetingInput } from "@/server/validators";
 import type { DashboardData } from "@/server/services/dashboard.service";
-import { desktop, isDesktopApp } from "@/lib/desktop";
 
 export interface MeetingListItem {
   id: string;
@@ -66,19 +65,11 @@ export function useUpdateMeeting() {
   });
 }
 
-/**
- * Borra una reunión y, si es de escritorio y tenía evento sincronizado,
- * también lo elimina del calendario de macOS (sync bidireccional).
- */
 export function useDeleteMeeting() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, externalEventId }: { id: string; externalEventId?: string | null }) => {
-      if (isDesktopApp() && externalEventId) {
-        await desktop()?.deleteCalendarEvent?.(externalEventId).catch(() => {});
-      }
-      return api.del(`/api/meetings/${id}`);
-    },
+    mutationFn: ({ id }: { id: string; externalEventId?: string | null }) =>
+      api.del(`/api/meetings/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["meetings"] }),
   });
 }

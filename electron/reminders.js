@@ -1,11 +1,11 @@
 // Recordatorios nativos antes de cada reunión con videollamada.
 //
-// Lee la agenda del día (EventKit) periódicamente y dispara una Notification
-// nativa de macOS ~N minutos antes del inicio de cada evento con enlace de
-// videollamada. Al hacer clic, enfoca la app y pide grabar ese evento.
+// Lee la agenda del día desde el API local (/api/calendar, suscripciones ICS)
+// periódicamente y dispara una Notification nativa de macOS ~N minutos antes
+// del inicio de cada evento con enlace de videollamada. Al hacer clic, enfoca
+// la app y pide grabar ese evento.
 
 const { Notification } = require("electron");
-const { getTodayEvents } = require("./calendar");
 
 const PLATFORM_LABEL = { meet: "Google Meet", teams: "Microsoft Teams", zoom: "Zoom", webex: "Webex" };
 
@@ -16,19 +16,30 @@ function setReminderConfig(partial) {
   config = { ...config, ...partial };
 }
 
+async function fetchTodayEvents(port) {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const url = `http://127.0.0.1:${port}/api/calendar?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`;
+  const res = await fetch(url);
+  const json = await res.json();
+  return json?.ok ? json.data.events || [] : [];
+}
+
 /**
  * Arranca el bucle de recordatorios.
  * @param {() => Electron.BrowserWindow|null} getWindow
+ * @param {number} port  puerto del servidor Next local
  * @returns {() => void} función para detener
  */
-function startReminders(getWindow) {
+function startReminders(getWindow, port) {
   let stopped = false;
 
   const tick = async () => {
     if (stopped) return;
     if (config.enabled && Notification.isSupported()) {
       try {
-        await checkAgenda(getWindow);
+        await checkAgenda(getWindow, port);
       } catch {
         /* ignoramos errores transitorios del calendario */
       }
@@ -36,15 +47,15 @@ function startReminders(getWindow) {
     if (!stopped) timer = setTimeout(tick, 30000);
   };
 
-  let timer = setTimeout(tick, 5000); // primer chequeo a los 5s
+  let timer = setTimeout(tick, 8000); // primer chequeo a los 8s (tras arrancar el server)
   return () => {
     stopped = true;
     if (timer) clearTimeout(timer);
   };
 }
 
-async function checkAgenda(getWindow) {
-  const { events } = await getTodayEvents();
+async function checkAgenda(getWindow, port) {
+  const events = await fetchTodayEvents(port);
   const now = Date.now();
   const leadMs = config.leadMinutes * 60 * 1000;
 

@@ -1,38 +1,36 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { desktop, isDesktopApp, type CalendarEvent, type TodayAgenda } from "@/lib/desktop";
+import { api } from "@/lib/api-client";
+import type { CalendarEvent, TodayAgenda } from "@/lib/desktop";
 
-/** Agenda de hoy desde el calendario de macOS (solo en la app de escritorio). */
-export function useTodayAgenda() {
-  return useQuery({
-    queryKey: ["agenda-today"],
-    enabled: isDesktopApp(),
-    refetchInterval: 5 * 60 * 1000, // refresca cada 5 min
-    queryFn: async () => {
-      const res = await desktop()?.getTodayAgenda?.();
-      return res ?? { events: [] as CalendarEvent[] };
-    },
-  });
+function startOfToday() {
+  const n = new Date();
+  return new Date(n.getFullYear(), n.getMonth(), n.getDate());
 }
 
-/** Eventos del calendario de macOS en un rango (vista de calendario). */
+/** Eventos del calendario (suscripciones ICS) en un rango. Server-side. */
 export function useCalendarRange(startISO: string, endISO: string) {
   return useQuery({
     queryKey: ["calendar-range", startISO, endISO],
-    queryFn: async () => {
-      const bridge = desktop();
-      const res = (await bridge?.getCalendarRange?.(startISO, endISO)) as
-        | (TodayAgenda & { calendars?: number })
-        | undefined;
-      console.log(
-        "[MeetGenius] calendar-range →",
-        "eventos:", res?.events?.length ?? "sin-respuesta",
-        "| calendarios:", res?.calendars ?? "sin-campo",
-        "| error:", res?.error ?? "ninguno",
-      );
-      return res ?? { events: [] as CalendarEvent[] };
-    },
+    queryFn: () =>
+      api.get<{ events: CalendarEvent[] }>(
+        `/api/calendar?start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`,
+      ) as Promise<TodayAgenda>,
+  });
+}
+
+/** Agenda de hoy (mismo origen ICS, rango = hoy). */
+export function useTodayAgenda() {
+  const start = startOfToday();
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return useQuery({
+    queryKey: ["agenda-today", start.toISOString()],
+    refetchInterval: 5 * 60 * 1000,
+    queryFn: () =>
+      api.get<{ events: CalendarEvent[] }>(
+        `/api/calendar?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`,
+      ) as Promise<TodayAgenda>,
   });
 }
 

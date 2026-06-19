@@ -7,7 +7,7 @@ import { Mic, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { api } from "@/lib/api-client";
-import { desktop, isDesktopApp, type MeetingStatus } from "@/lib/desktop";
+import { desktop, isDesktopApp, type MeetingStatus, type CalendarEvent } from "@/lib/desktop";
 import { findCurrentEvent } from "@/hooks/use-agenda";
 
 const AUTO_RECORD_KEY = "mg:autoRecord";
@@ -47,12 +47,17 @@ export function MeetingWatcher() {
 
   const startForDetected = React.useCallback(
     async (status: MeetingStatus) => {
-      // Intentamos enriquecer con el evento del calendario en curso.
+      // Intentamos enriquecer con el evento del calendario en curso (vía /api/calendar).
       let title = `Reunión en ${status.detail ?? "videollamada"} — ${format(new Date(), "d MMM HH:mm", { locale: es })}`;
       let participants: string[] = [];
       try {
-        const agenda = await desktop()?.getTodayAgenda?.();
-        const current = findCurrentEvent(agenda?.events ?? []);
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const end = new Date(start.getTime() + 86_400_000);
+        const agenda = await api.get<{ events: CalendarEvent[] }>(
+          `/api/calendar?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`,
+        );
+        const current = findCurrentEvent(agenda.events ?? []);
         if (current) {
           title = current.title;
           participants = current.attendees.slice(0, 25);

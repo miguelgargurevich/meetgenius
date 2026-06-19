@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea, Label } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/misc";
 import { useCreateMeeting, useUpdateMeeting } from "@/hooks/use-meetings";
-import { desktop, isDesktopApp } from "@/lib/desktop";
 
 interface FormValues {
   title: string;
@@ -56,8 +55,6 @@ export function CreateMeetingDialog({
   const create = useCreateMeeting();
   const update = useUpdateMeeting();
   const isEdit = Boolean(meeting);
-  const desktopApp = isDesktopApp();
-  const [addToCalendar, setAddToCalendar] = React.useState(true);
   const { register, handleSubmit, reset } = useForm<FormValues>({
     defaultValues: { durationMinutes: 30 },
   });
@@ -73,10 +70,8 @@ export function CreateMeetingDialog({
         meetingUrl: meeting.meetingUrl ?? "",
         participantsRaw: (meeting.participants ?? []).join(", "),
       });
-      setAddToCalendar(Boolean(meeting.externalEventId) || true);
     } else {
       reset({ durationMinutes: 30, scheduledAt: defaultDate });
-      setAddToCalendar(true);
     }
   }, [open, meeting, defaultDate, reset]);
 
@@ -94,38 +89,6 @@ export function CreateMeetingDialog({
     const durationMinutes = Number(values.durationMinutes) || 30;
 
     try {
-      // ── Gestión del evento en el calendario de macOS ──
-      let externalEventId: string | undefined = meeting?.externalEventId ?? undefined;
-      if (desktopApp) {
-        const start = values.scheduledAt ? new Date(values.scheduledAt) : null;
-        const end = start ? new Date(start.getTime() + durationMinutes * 60_000) : null;
-
-        if (addToCalendar && start && end) {
-          const payload = {
-            title: values.title,
-            startISO: start.toISOString(),
-            endISO: end.toISOString(),
-            notes: values.description,
-            url: values.meetingUrl,
-          };
-          const res = externalEventId
-            ? await desktop()?.updateCalendarEvent?.({ ...payload, eventId: externalEventId })
-            : await desktop()?.createCalendarEvent?.(payload);
-          if (res?.id) externalEventId = res.id;
-          else if (res?.error === "not-found") {
-            // El evento fue borrado en macOS: lo recreamos.
-            const created = await desktop()?.createCalendarEvent?.(payload);
-            if (created?.id) externalEventId = created.id;
-          } else if (res?.error && res.error !== "unsupported") {
-            toast.warning("No se pudo sincronizar con el calendario de macOS (revisa el permiso).");
-          }
-        } else if (!addToCalendar && externalEventId) {
-          // Se desmarcó: eliminamos el evento sincronizado.
-          await desktop()?.deleteCalendarEvent?.(externalEventId).catch(() => {});
-          externalEventId = undefined;
-        }
-      }
-
       if (isEdit && meeting) {
         await update.mutateAsync({
           id: meeting.id,
@@ -134,7 +97,6 @@ export function CreateMeetingDialog({
           scheduledAt: values.scheduledAt || null,
           durationMinutes,
           meetingUrl: values.meetingUrl || "",
-          externalEventId: externalEventId ?? null,
           participants,
         });
         toast.success("Reunión actualizada");
@@ -148,7 +110,6 @@ export function CreateMeetingDialog({
         scheduledAt: values.scheduledAt || null,
         durationMinutes,
         meetingUrl: values.meetingUrl || "",
-        externalEventId,
         participants,
       });
       toast.success("Reunión creada");
@@ -167,7 +128,7 @@ export function CreateMeetingDialog({
       title={isEdit ? "Editar reunión" : "Nueva reunión"}
       description={
         isEdit
-          ? "Cambia los datos; se sincronizan con tu calendario de macOS."
+          ? "Cambia los datos de la reunión."
           : "Programa o graba una reunión y analízala con IA."
       }
     >
@@ -202,18 +163,6 @@ export function CreateMeetingDialog({
           <Label htmlFor="description">Descripción (opcional)</Label>
           <Textarea id="description" placeholder="Objetivo de la reunión…" {...register("description")} />
         </div>
-
-        {desktopApp && (
-          <label className="flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
-            <input
-              type="checkbox"
-              checked={addToCalendar}
-              onChange={(e) => setAddToCalendar(e.target.checked)}
-              className="size-4 accent-[var(--primary)]"
-            />
-            Sincronizar con mi calendario de macOS
-          </label>
-        )}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose}>

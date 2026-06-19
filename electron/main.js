@@ -4,13 +4,6 @@
 const { app, BrowserWindow, shell, session, desktopCapturer, systemPreferences, ipcMain } = require("electron");
 const path = require("path");
 const { startMeetingDetector, runDetection } = require("./meeting-detector");
-const {
-  getTodayEvents,
-  getEventsInRange,
-  createCalendarEvent,
-  updateCalendarEvent,
-  deleteCalendarEvent,
-} = require("./calendar");
 const { startReminders, setReminderConfig } = require("./reminders");
 
 // Estado del permiso de grabación de pantalla (requisito del loopback en macOS).
@@ -22,16 +15,7 @@ ipcMain.handle("screen-access-status", () => {
 // Consulta puntual del estado de reunión (además del push periódico).
 ipcMain.handle("meeting-status", () => runDetection());
 
-// Agenda de hoy desde el calendario de macOS (EventKit).
-ipcMain.handle("calendar-today", () => getTodayEvents());
-
-// Eventos en un rango de fechas (vista de calendario mensual/semanal).
-ipcMain.handle("calendar-range", (_e, range) => getEventsInRange(range.start, range.end));
-
-// Crear/actualizar/eliminar eventos en el calendario de macOS (sync bidireccional).
-ipcMain.handle("calendar-create-event", (_e, payload) => createCalendarEvent(payload));
-ipcMain.handle("calendar-update-event", (_e, payload) => updateCalendarEvent(payload));
-ipcMain.handle("calendar-delete-event", (_e, eventId) => deleteCalendarEvent(eventId));
+// El calendario ahora se lee server-side vía /api/calendar (suscripciones ICS).
 
 // Configuración de recordatorios (on/off + minutos de antelación).
 ipcMain.on("reminders-config", (_e, cfg) => setReminderConfig(cfg || {}));
@@ -102,7 +86,7 @@ function createWindow() {
   });
 
   // Recordatorios nativos antes de cada reunión con videollamada.
-  stopReminders = startReminders(() => mainWindow);
+  stopReminders = startReminders(() => mainWindow, PORT);
 
   mainWindow.on("closed", () => {
     if (stopDetector) stopDetector();
@@ -150,7 +134,7 @@ async function startProductionServer() {
   // cambió la versión del esquema (evita DBs desfasadas tras actualizar la app).
   // Nota: refrescar reinicia los datos locales; mientras el esquema esté en
   // evolución es el comportamiento esperado (migraciones formales más adelante).
-  const DB_SCHEMA_VERSION = "3"; // súbelo al cambiar el schema de Prisma
+  const DB_SCHEMA_VERSION = "4"; // súbelo al cambiar el schema de Prisma
   const fs = require("fs");
   const dbPath = path.join(app.getPath("userData"), "meetgenius.db");
   const versionPath = path.join(app.getPath("userData"), "db.version");
