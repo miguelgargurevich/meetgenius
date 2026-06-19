@@ -8,7 +8,7 @@ async function main() {
   const org = await prisma.organization.upsert({
     where: { slug: "default" },
     update: {},
-    create: { name: "Mi Organización", slug: "default" },
+    create: { name: "Mi Organización", slug: "default", vocabulary: [] },
   });
 
   const user = await prisma.user.upsert({

@@ -27,6 +27,7 @@ export async function getCurrentOrg(): Promise<{ id: string; userId: string }> {
       data: {
         name: "Mi Organización",
         slug: DEFAULT_ORG_SLUG,
+        vocabulary: [],
         users: {
           create: {
             email: "demo@meetgenius.app",
@@ -37,6 +38,14 @@ export async function getCurrentOrg(): Promise<{ id: string; userId: string }> {
       },
       include: { users: { take: 1 } },
     });
+  } else {
+    // Sanitizar vocabulary por si quedó NULL/vacío de migraciones previas
+    if (org.vocabulary === null || org.vocabulary === undefined || org.vocabulary === "") {
+      await prisma.organization.update({
+        where: { id: org.id },
+        data: { vocabulary: [] },
+      });
+    }
   }
 
   cachedOrgId = org.id;
