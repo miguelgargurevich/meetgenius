@@ -138,9 +138,11 @@ MeetGenius detecta automáticamente cuándo entras a una **videollamada** y te o
 
 MeetGenius se suscribe a tu calendario por su **URL `.ics`** y lo lee **en el servidor** (no por el sistema operativo), así que funciona igual en **dev, app empaquetada y web**, sin permisos de macOS.
 
-- **Conectar**: en la sección *Calendario* → botón **Calendarios** → pega la URL `.ics`. Soporta varias fuentes.
-  - **Outlook / Microsoft 365**: Outlook Web → Configuración → Calendario → Calendarios compartidos → *Publicar calendario* → copia el enlace **ICS**.
-  - **Google Calendar**: Configuración del calendario → Integrar calendario → *Dirección secreta en formato iCal*.
+- **Conectar**: en la sección *Calendario* → botón **Calendarios**. El modal tiene dos pestañas:
+  - **Suscripción URL**: pega la URL `.ics` (se mantiene sincronizada). Soporta varias fuentes.
+    - **Outlook / Microsoft 365**: Outlook Web → Configuración → Calendario → Calendarios compartidos → *Publicar calendario* → copia el enlace **ICS**.
+    - **Google Calendar**: Configuración del calendario → Integrar calendario → *Dirección secreta en formato iCal*.
+  - **Archivo .ics**: sube un `.ics` exportado de cualquier calendario. Sus eventos se **guardan** (el contenido del archivo se almacena como fuente) y aparecen en el calendario, con recurrencias y eventos de todo el día. No se re-sincroniza (es una instantánea del archivo). Además, los eventos **con videollamada** (Meet/Teams/Zoom/Webex) de los próximos 90 días se crean automáticamente como **reuniones** programadas (listas para grabar/analizar); el resto quedan solo como eventos del calendario. La importación deduplica por evento, así que reimportar el mismo `.ics` no crea reuniones repetidas.
 - **Vista de Calendario**: mes y semana que unen en una sola vista tus **reuniones de la app** + los **eventos del calendario suscrito** (colores distintos, eventos recurrentes y de todo el día incluidos). Click en un día → crear; click en evento de la app → abrir; click en evento con videollamada → grabar.
 - **Agenda de hoy** en el dashboard + **recordatorios nativos** antes de cada reunión, alimentados por la misma suscripción.
 - **Sincronización**: automática (cada 5 min) + botón **Sincronizar** manual; caché de ~60s del feed.

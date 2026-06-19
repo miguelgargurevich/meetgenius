@@ -134,7 +134,7 @@ async function startProductionServer() {
   // cambió la versión del esquema (evita DBs desfasadas tras actualizar la app).
   // Nota: refrescar reinicia los datos locales; mientras el esquema esté en
   // evolución es el comportamiento esperado (migraciones formales más adelante).
-  const DB_SCHEMA_VERSION = "5"; // súbelo al cambiar el schema de Prisma
+  const DB_SCHEMA_VERSION = "6"; // súbelo al cambiar el schema de Prisma
   const fs = require("fs");
   const dbPath = path.join(app.getPath("userData"), "meetgenius.db");
   const versionPath = path.join(app.getPath("userData"), "db.version");

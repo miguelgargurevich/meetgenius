@@ -11,9 +11,19 @@ export const calendarSourceRepository = {
   },
 
   findAll(organizationId: string) {
+    // No enviamos icsContent al cliente (puede ser grande); solo metadatos.
     return prisma.calendarSource.findMany({
       where: { organizationId },
       orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        name: true,
+        kind: true,
+        url: true,
+        color: true,
+        enabled: true,
+        createdAt: true,
+      },
     });
   },
 

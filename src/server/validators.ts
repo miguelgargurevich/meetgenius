@@ -36,10 +36,16 @@ export const chatSchema = z.object({
 });
 export type ChatInput = z.infer<typeof chatSchema>;
 
-export const addSourceSchema = z.object({
-  name: z.string().min(1, "Nombre requerido"),
-  url: z.string().url("URL .ics inválida"),
-});
+export const addSourceSchema = z
+  .object({
+    name: z.string().min(1, "Nombre requerido"),
+    // Una fuente es una suscripción remota (url) o un archivo .ics subido (icsContent).
+    url: z.string().url("URL .ics inválida").optional(),
+    icsContent: z.string().min(1).optional(),
+  })
+  .refine((d) => Boolean(d.url) || Boolean(d.icsContent), {
+    message: "Indica una URL .ics o adjunta un archivo .ics",
+  });
 export type AddSourceInput = z.infer<typeof addSourceSchema>;
 
 export const historyQuerySchema = z.object({

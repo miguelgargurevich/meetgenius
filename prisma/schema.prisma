@@ -41,7 +41,9 @@ model CalendarSource {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
   name           String
-  url            String
+  kind           String       @default("url") // url | file
+  url            String? // suscripción remota (kind=url)
+  icsContent     String? // contenido .ics subido (kind=file)
   color          String?
   enabled        Boolean      @default(true)
   createdAt      DateTime     @default(now())
